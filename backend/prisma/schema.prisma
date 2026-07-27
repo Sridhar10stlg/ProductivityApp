@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Category {
+  id           Int           @id @default(autoincrement())
+  name         String
+  icon         String?
+  color        String?
+  type         String        // "EXPENSE" or "INCOME"
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  transactions Transaction[]
+  budgets      Budget[]
+
+  @@unique([name, type])
+}
+
+model Budget {
+  id         Int      @id @default(autoincrement())
+  categoryId Int
+  category   Category @relation(fields: [categoryId], references: [id])
+  amount     Float
+  period     String   // "WEEKLY", "MONTHLY", "YEARLY"
+  startDate  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([categoryId])
+}
+
+model Account {
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  icon         String?
+  color        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  transactions Transaction[]
+}
+
+model Transaction {
+  id          Int      @id @default(autoincrement())
+  type        String   // "EXPENSE" or "INCOME"
+  amount      Float
+  description String?
+  date        DateTime
+  categoryId  Int
+  category    Category @relation(fields: [categoryId], references: [id])
+  accountId   Int
+  account     Account  @relation(fields: [accountId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([date])
+  @@index([categoryId])
+  @@index([accountId])
+  @@index([type])
+}
+
+// ─── To-Do Module ───────────────────────────────────
+
+model TaskList {
+  id        Int      @id @default(autoincrement())
+  name      String
+  icon      String?
+  color     String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tasks     Task[]
+}
+
+model Task {
+  id          Int       @id @default(autoincrement())
+  title       String
+  note        String?
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  important   Boolean   @default(false)
+  myDay       Boolean   @default(false)
+  myDayDate   DateTime?
+  dueDate     DateTime?
+  priority    String    @default("NONE") // NONE, LOW, MEDIUM, HIGH
+  sortOrder   Int       @default(0)
+  listId      Int?
+  list        TaskList? @relation(fields: [listId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  subtasks    SubTask[]
+
+  @@index([listId])
+  @@index([completed])
+  @@index([dueDate])
+  @@index([important])
+}
+
+model SubTask {
+  id        Int      @id @default(autoincrement())
+  title     String
+  completed Boolean  @default(false)
+  sortOrder Int      @default(0)
+  taskId    Int
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([taskId])
+}
+
+// ─── Worklog Module ──────────────────────────────────
+
+model WorklogEntry {
+  id                     Int      @id @default(autoincrement())
+  date                   DateTime
+  natureOfWork           String?
+  account                String?
+  projectWork            String?
+  importantTasksFeatures String?
+  toolsTechSkills        String?
+  remarks                String?
+  attachments            String?
+  priority               String   @default("NONE") // NONE, LOW, MEDIUM, HIGH
+  rowColor               String?  // null | "gold" | "green" | "red"
+  sourceType             String   @default("TASK") // TASK, SUBTASK, or MANUAL
+  sourceId               Int?     // original Task or SubTask id
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([date])
+}

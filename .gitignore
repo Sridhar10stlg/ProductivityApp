@@ -1,0 +1,20 @@
+node_modules/
+dist/
+*.db
+*.db-journal
+*.db.backup*
+.env
+.env.local
+backend/prisma/dev.db
+
+# Stray file created by a `del` command that ran under bash. "nul" is a reserved
+# device name on Windows, and a committed file with that name can make the repo
+# impossible to check out. Safe to delete from disk.
+nul
+
+# Personal task data (the Microsoft To-Do print export used as the reference
+# fixture for the PDF importer). Left untracked so a real to-do list is not
+# published to GitHub. Delete this line if you want it versioned — but do it
+# before the repo is ever made public, since removing a file from history later
+# means rewriting every commit after it.
+To Do task list.pdf

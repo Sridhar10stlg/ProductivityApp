@@ -1,0 +1,9 @@
+# Normalize line endings to LF in the repository regardless of each machine's
+# core.autocrlf setting, so switching laptops does not produce whole-file diffs.
+* text=auto
+
+*.png binary
+*.jpg binary
+*.pdf binary
+*.db binary
+*.xlsx binary
