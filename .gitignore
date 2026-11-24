@@ -18,3 +18,5 @@ nul
 # before the repo is ever made public, since removing a file from history later
 # means rewriting every commit after it.
 To Do task list.pdf
+
+tmp/
