@@ -190,7 +190,7 @@ export function TaskDetail({ task, onClose }: TaskDetailProps) {
           value={task.listId ?? ''}
           onChange={(e) => {
             const val = e.target.value;
-            updateTask({ id: task.id, data: { listId: val ? parseInt(val, 10) : undefined } });
+            updateTask({ id: task.id, data: { listId: val ? parseInt(val, 10) : null } });
           }}
         >
           <MenuItem value="">None</MenuItem>

@@ -63,6 +63,6 @@ export interface UpdateTaskData {
   myDay?: boolean;
   dueDate?: string | null;
   priority?: Priority;
-  listId?: number;
+  listId?: number | null; // null = take the task out of its list
   sortOrder?: number;
 }

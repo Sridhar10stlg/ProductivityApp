@@ -18,7 +18,7 @@ export const updateTaskSchema = z.object({
   myDay: z.boolean().optional(),
   dueDate: z.string().nullable().optional(),
   priority: z.enum(['NONE', 'LOW', 'MEDIUM', 'HIGH']).optional(),
-  listId: z.number().int().positive().optional(),
+  listId: z.number().int().positive().nullable().optional(), // null = take the task out of its list
   sortOrder: z.number().int().optional(),
 });
 
