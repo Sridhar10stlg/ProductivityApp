@@ -106,6 +106,10 @@ Weekly, LeetCode, Settings.
 - Import reads the workbook by sheet/header names (Settings, Tracker, LeetCode log); export writes
   the same layout. Import with `overwriteSettings` (default true) replaces start date, thresholds,
   phases and habit list from the file.
+- JSON import/export (`streaksJson.service.ts`) handles the "completions per habit" format of other habit apps:
+  preview suggests a name match for each file habit, the UI confirms a mapping (map / create / skip), and
+  import only adds DONE entries (idempotent). Per-habit streaks run from the earliest logged day, so
+  history imported from before the plan start date still counts.
 
 ### Import / Export
 All four modules support import and export via `multer` + `xlsx`. The To-Do importer also
@@ -129,7 +133,7 @@ decoding its glyph markers — `K` = active task, `O` = completed, `þ`/`ÿ` = s
 | `/api/v1/worklog/data` | Worklog import/export (mounted before `/worklog`) |
 | `/api/v1/streaks` | Habit config (`/config`, `/settings`, `/phases`, `/habits`), daily log (`/days`), `/summary`, `/weekly` |
 | `/api/v1/streaks/leetcode` | LeetCode log (CRUD + stats; mounted before `/streaks`) |
-| `/api/v1/streaks/data` | Habit tracker Excel import/export (mounted before `/streaks`) |
+| `/api/v1/streaks/data` | Habit tracker Excel import/export, plus JSON (`/import-json/preview`, `/import-json`, `/export-json`) (mounted before `/streaks`) |
 | `/api/health` | Health check |
 
 Note the ordering constraint: `/tasks/data`, `/worklog/data` and the `/streaks/*` sub-paths must stay

@@ -176,6 +176,32 @@ export interface StreaksImportResult {
   warnings: string[];
 }
 
+export interface JsonPreviewHabit {
+  index: number;
+  name: string;
+  emoji: string | null;
+  frequency: string;
+  frequencyCount: number;
+  completions: number;
+  first: string | null;
+  last: string | null;
+  suggestedHabitId: number | null;
+}
+
+export type JsonMappingItem =
+  | { index: number; action: 'skip' }
+  | { index: number; action: 'map'; habitId: number }
+  | { index: number; action: 'create'; group: HabitGroup; activeFromPhase: number };
+
+export interface JsonImportResult {
+  habitsCreated: number;
+  habitsSkipped: number;
+  daysCreated: number;
+  entriesAdded: number;
+  entriesAlreadyDone: number;
+  warnings: string[];
+}
+
 export const GROUP_LABELS: Record<HabitGroup, string> = {
   ANCHOR: 'Anchor',
   BODY: 'Body',

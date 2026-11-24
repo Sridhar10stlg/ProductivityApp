@@ -14,6 +14,9 @@ import type {
   StreaksImportResult,
   HabitGroup,
   HabitStats,
+  JsonPreviewHabit,
+  JsonMappingItem,
+  JsonImportResult,
 } from '../types/streaks.types';
 
 interface ApiResponse<T> {
@@ -135,6 +138,26 @@ export const streaksApi = createApi({
       transformResponse: (response: ApiResponse<StreaksImportResult>) => response.data,
       invalidatesTags: ['StreakConfig', 'StreakDay', 'LeetCode'],
     }),
+
+    previewJsonImport: builder.mutation<JsonPreviewHabit[], File>({
+      query: (file) => {
+        const body = new FormData();
+        body.append('file', file);
+        return { url: '/data/import-json/preview', method: 'POST', body };
+      },
+      transformResponse: (response: ApiResponse<JsonPreviewHabit[]>) => response.data,
+    }),
+
+    importJson: builder.mutation<JsonImportResult, { file: File; mapping: JsonMappingItem[] }>({
+      query: ({ file, mapping }) => {
+        const body = new FormData();
+        body.append('file', file);
+        body.append('mapping', JSON.stringify(mapping));
+        return { url: '/data/import-json', method: 'POST', body };
+      },
+      transformResponse: (response: ApiResponse<JsonImportResult>) => response.data,
+      invalidatesTags: ['StreakConfig', 'StreakDay'],
+    }),
   }),
 });
 
@@ -156,4 +179,6 @@ export const {
   useUpdateLeetCodeMutation,
   useDeleteLeetCodeMutation,
   useImportStreaksMutation,
+  usePreviewJsonImportMutation,
+  useImportJsonMutation,
 } = streaksApi;

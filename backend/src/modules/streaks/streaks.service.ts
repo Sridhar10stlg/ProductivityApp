@@ -262,13 +262,19 @@ async function buildScores(ctx: EngineContext, today: string) {
 
   const all = toDayNumber(end) >= toDayNumber(start) ? scoreRange(start, end, records, ctx) : [];
   const upToToday = all.filter((s) => s.date <= today);
-  return { all, upToToday, records };
+
+  // Per-habit streaks also count history logged before the plan start date (e.g. imported from
+  // another app), so they run from the earliest logged day instead of the plan start.
+  const earliest = loggedDates.length > 0 && loggedDates[0] < start ? loggedDates[0] : start;
+  const habitScores =
+    toDayNumber(today) >= toDayNumber(earliest) ? scoreRange(earliest, today, records, ctx) : [];
+  return { all, upToToday, habitScores, records };
 }
 
 export async function getSummary() {
   const ctx = await loadContext();
   const today = todayString();
-  const { all, upToToday, records } = await buildScores(ctx, today);
+  const { all, upToToday, habitScores, records } = await buildScores(ctx, today);
 
   const todayScore = scoreDay(today, records.get(today), ctx);
   const started = toDayNumber(today) >= toDayNumber(ctx.settings.startDate);
@@ -283,8 +289,8 @@ export async function getSummary() {
     name: h.name,
     group: h.group,
     activeToday: h.activeFromPhase <= todayScore.phase,
-    ...habitStreak(h, upToToday, today),
-    chain: habitChain(h, upToToday, today, CHAIN_LENGTH),
+    ...habitStreak(h, habitScores, today),
+    chain: habitChain(h, habitScores, today, CHAIN_LENGTH),
   }));
 
   return {
@@ -350,11 +356,11 @@ export async function getHabitStats(id: number) {
 
   const ctx = await loadContext();
   const today = todayString();
-  const { upToToday } = await buildScores(ctx, today);
+  const { habitScores } = await buildScores(ctx, today);
 
   // Archived habits are not in the scoring context but can still be viewed.
   const engineHabit: EngineHabit = { id: habit.id, name: habit.name, group: habit.group, activeFromPhase: habit.activeFromPhase };
-  const streak = habitStreak(engineHabit, upToToday, today);
+  const streak = habitStreak(engineHabit, habitScores, today);
 
   const rows = await prisma.habitEntry.findMany({
     where: { habitId: id },
