@@ -4,8 +4,13 @@ import {
   Box,
   Button,
   Card,
+  CardActionArea,
   CardContent,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Grid,
   IconButton,
   List,
@@ -41,7 +46,7 @@ import {
   useUpdateSettingsMutation,
 } from '../store/streaksApi';
 import { GROUP_COLORS, GROUP_LABELS } from '../types/streaks.types';
-import type { Habit } from '../types/streaks.types';
+import type { Habit, HabitPhase } from '../types/streaks.types';
 
 interface PhaseRow {
   phase: number;
@@ -56,6 +61,14 @@ interface Notice {
 }
 
 const pct = (v: number) => String(Math.round(v * 100));
+
+const toPhaseRows = (phases: HabitPhase[]): PhaseRow[] =>
+  phases.map((p) => ({
+    phase: p.phase,
+    startsInWeek: String(p.startsInWeek),
+    brainNeeded: String(p.brainNeeded),
+    description: p.description ?? '',
+  }));
 
 export function StreaksSettingsPage() {
   const { data: config } = useGetConfigQuery();
@@ -76,6 +89,8 @@ export function StreaksSettingsPage() {
   const [phaseRows, setPhaseRows] = useState<PhaseRow[]>([]);
   const [settingsNotice, setSettingsNotice] = useState<Notice | null>(null);
   const [phasesNotice, setPhasesNotice] = useState<Notice | null>(null);
+  const [phasesDialogOpen, setPhasesDialogOpen] = useState(false);
+  const [phasesError, setPhasesError] = useState<string | null>(null);
 
   const [habitDialogOpen, setHabitDialogOpen] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
@@ -91,14 +106,7 @@ export function StreaksSettingsPage() {
     setGateEasy(String(s.gateEasy));
     setGateTotal(String(s.gateTotal));
     setGateMedium(String(s.gateMedium));
-    setPhaseRows(
-      config.phases.map((p) => ({
-        phase: p.phase,
-        startsInWeek: String(p.startsInWeek),
-        brainNeeded: String(p.brainNeeded),
-        description: p.description ?? '',
-      }))
-    );
+    setPhaseRows(toPhaseRows(config.phases));
   }, [config]);
 
   if (!config) return <LoadingSpinner />;
@@ -145,6 +153,13 @@ export function StreaksSettingsPage() {
     ]);
   };
 
+  const openPhasesDialog = () => {
+    // Start from what is saved, so cancelling discards any half-made edits.
+    setPhaseRows(toPhaseRows(config.phases));
+    setPhasesError(null);
+    setPhasesDialogOpen(true);
+  };
+
   const savePhases = async () => {
     const payload = phaseRows.map((r) => ({
       phase: r.phase,
@@ -153,14 +168,15 @@ export function StreaksSettingsPage() {
       description: r.description.trim() || null,
     }));
     if (payload.some((p) => !(p.startsInWeek >= 1) || !(p.brainNeeded >= 0))) {
-      setPhasesNotice({ severity: 'error', text: 'Start week must be 1 or more and Brain habits needed 0 or more.' });
+      setPhasesError('Start week must be 1 or more and Brain habits needed 0 or more.');
       return;
     }
     try {
       await replacePhases(payload).unwrap();
       setPhasesNotice({ severity: 'success', text: 'Phases saved. All scores and streaks have been recalculated.' });
+      setPhasesDialogOpen(false);
     } catch {
-      setPhasesNotice({ severity: 'error', text: 'Could not save phases.' });
+      setPhasesError('Could not save phases.');
     }
   };
 
@@ -172,8 +188,9 @@ export function StreaksSettingsPage() {
     reorderHabits(ids);
   };
 
-  const habitCountForPhase = (phase: number) => activeHabits.filter((h) => h.activeFromPhase <= phase).length;
   const productiveShare = parseFloat(productive) / 100;
+  const todayYmd = new Date().toLocaleDateString('en-CA');
+  const countedToday = activeHabits.filter((h) => !h.startDate || h.startDate <= todayYmd).length;
 
   const numberField = (label: string, value: string, set: (v: string) => void, helper?: string, props?: object) => (
     <TextField
@@ -194,6 +211,7 @@ export function StreaksSettingsPage() {
 
       <Grid container spacing={3}>
         <Grid item xs={12} lg={6}>
+          <Box sx={{ mb: 3 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>Plan</Typography>
@@ -232,10 +250,51 @@ export function StreaksSettingsPage() {
               {settingsNotice && <Alert severity={settingsNotice.severity} sx={{ mt: 2 }}>{settingsNotice.text}</Alert>}
             </CardContent>
           </Card>
+          </Box>
+
+          <Card sx={{ mb: 3 }}>
+            <CardActionArea onClick={openPhasesDialog}>
+              <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="h6" fontWeight={700}>Phases</Typography>
+                  <Button size="small" startIcon={<EditIcon fontSize="small" />} component="span">Edit phases</Button>
+                </Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  Phases set the week-by-week Brain-habit minimum for a productive day. Click to change them.
+                </Typography>
+                <Table size="small" sx={{ '& td, & th': { px: 1 } }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Phase</TableCell>
+                      <TableCell>From week</TableCell>
+                      <TableCell align="center">Brain</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {config.phases.map((p) => {
+                      return (
+                        <TableRow key={p.phase}>
+                          <TableCell>{p.phase}</TableCell>
+                          <TableCell>{p.startsInWeek}</TableCell>
+                          <TableCell align="center">{p.brainNeeded}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </CardActionArea>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', px: 2, pb: 2 }}>
+              Today a productive day needs {Math.ceil(productiveShare * countedToday - 1e-9)} of {countedToday} habits ({productive}%).
+            </Typography>
+            {phasesNotice && <Alert severity={phasesNotice.severity} sx={{ m: 2, mt: 0 }}>{phasesNotice.text}</Alert>}
+          </Card>
+
+          <StreaksDataCard />
         </Grid>
 
         <Grid item xs={12} lg={6}>
-          <Card sx={{ mb: 3 }}>
+          <Card>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="h6" fontWeight={700}>Habits</Typography>
@@ -283,7 +342,7 @@ export function StreaksSettingsPage() {
                             label={GROUP_LABELS[h.group]}
                             sx={{ bgcolor: alpha(GROUP_COLORS[h.group], 0.12), color: GROUP_COLORS[h.group], height: 20 }}
                           />
-                          <span>from phase {h.activeFromPhase}</span>
+                          <span>{h.startDate ? `counts from ${h.startDate}` : 'counts every day'}</span>
                         </Box>
                       }
                       secondaryTypographyProps={{ component: 'span' }}
@@ -294,16 +353,15 @@ export function StreaksSettingsPage() {
               </List>
             </CardContent>
           </Card>
-
-          <StreaksDataCard />
         </Grid>
-        <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" fontWeight={700}>Phases</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                Habits switch on as phases begin. Move a phase later if you need more time.
-              </Typography>
+      </Grid>
+
+      <Dialog open={phasesDialogOpen} onClose={() => setPhasesDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Edit phases</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Each phase starts in the given week and sets how many Brain habits a productive day needs.
+          </Typography>
               <Box sx={{ overflowX: 'auto' }}>
               <Table size="small" sx={{ '& td, & th': { px: 1.5 } }}>
                 <TableHead>
@@ -312,14 +370,11 @@ export function StreaksSettingsPage() {
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>Starts in week</TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>Brain needed</TableCell>
                     <TableCell>Description</TableCell>
-                    <TableCell align="center">Habits</TableCell>
-                    <TableCell align="center">Needed</TableCell>
                     <TableCell />
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {phaseRows.map((row, i) => {
-                    const count = habitCountForPhase(row.phase);
                     const isLast = i === phaseRows.length - 1;
                     return (
                       <TableRow key={row.phase}>
@@ -353,10 +408,6 @@ export function StreaksSettingsPage() {
                             fullWidth
                           />
                         </TableCell>
-                        <TableCell align="center">{count}</TableCell>
-                        <TableCell align="center">
-                          {productiveShare > 0 ? Math.ceil(productiveShare * count - 1e-9) : '-'}
-                        </TableCell>
                         <TableCell>
                           {isLast && phaseRows.length > 1 && (
                             <Tooltip title="Remove last phase">
@@ -372,25 +423,19 @@ export function StreaksSettingsPage() {
                 </TableBody>
               </Table>
               </Box>
-              <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
-                <Button startIcon={<AddIcon />} onClick={addPhase}>Add phase</Button>
-                <Button variant="contained" onClick={savePhases} disabled={savingPhases}>Save phases</Button>
-              </Box>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                "Habits" is how many habits are active in that phase; "Needed" is the productive-day target at the
-                current threshold with none marked not applicable. A habit set to start in a phase that no longer exists never counts.
-              </Typography>
-              {phasesNotice && <Alert severity={phasesNotice.severity} sx={{ mt: 2 }}>{phasesNotice.text}</Alert>}
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+          {phasesError && <Alert severity="error" sx={{ mt: 2 }}>{phasesError}</Alert>}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button startIcon={<AddIcon />} onClick={addPhase} sx={{ mr: 'auto' }}>Add phase</Button>
+          <Button onClick={() => setPhasesDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={savePhases} disabled={savingPhases}>Save phases</Button>
+        </DialogActions>
+      </Dialog>
 
       <HabitFormDialog
         open={habitDialogOpen}
         onClose={() => setHabitDialogOpen(false)}
         habit={editingHabit}
-        phases={config.phases}
       />
 
       <ConfirmDialog

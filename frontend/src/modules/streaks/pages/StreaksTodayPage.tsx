@@ -122,11 +122,10 @@ export function StreaksTodayPage() {
               <Typography variant="body2" color="text.secondary">Today</Typography>
               <Box sx={{ my: 0.5 }}><ResultChip result={day.result} size="medium" /></Box>
               <Typography variant="h5" fontWeight={700}>
-                {day.done} / {day.needed}
-                <Typography component="span" variant="body2" color="text.secondary"> needed</Typography>
+                {day.done} / {day.applicable}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {day.applicable} applicable{day.score !== null ? ` · ${Math.round(day.score * 100)}%` : ''}
+                {day.score !== null ? `${Math.round(day.score * 100)}% · ` : ''}{day.needed} needed to be productive
               </Typography>
             </CardContent>
           </Card>
@@ -215,7 +214,7 @@ export function StreaksTodayPage() {
                 </Typography>
                 <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 1 }}>
                   {groupHabits.map((h) => {
-                    const active = h.activeFromPhase <= day.phase;
+                    const active = !h.startDate || h.startDate <= day.date;
                     const status = day.entries[h.id];
                     const streak = streakOf(h.id);
                     return (
@@ -247,7 +246,7 @@ export function StreaksTodayPage() {
                           <Typography variant="body2" fontWeight={600} noWrap>{h.name}</Typography>
                           {!active && (
                             <Typography variant="caption" color="text.secondary">
-                              Optional until phase {h.activeFromPhase} (not counted yet)
+                              Counts from {dayjs(h.startDate).format('D MMM YYYY')}
                             </Typography>
                           )}
                           {active && status === 'NA' && (

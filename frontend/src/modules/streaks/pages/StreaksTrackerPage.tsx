@@ -58,7 +58,7 @@ export function StreaksTrackerPage() {
         <IconButton onClick={() => setMonth(month.add(1, 'month'))}><ChevronRightIcon /></IconButton>
         <Button onClick={() => setMonth(dayjs().startOf('month'))}>This month</Button>
         <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
-          Plan starts {dayjs(startDate).format('D MMM YYYY')}. Grey cells belong to a later phase: you can still log them, but they do not count toward the day's score yet.
+          Plan starts {dayjs(startDate).format('D MMM YYYY')}. Done is out of all habits counted that day. A grey cell is a day before that habit was added: you can still log it, but it is not part of that day's total.
         </Typography>
       </Box>
 
@@ -144,6 +144,11 @@ export function StreaksTrackerPage() {
                     }}
                   >
                     {dayjs(d.date).format('DD MMM')} {d.weekday}
+                    {ordered.filter((h) => h.startDate === d.date).map((h) => (
+                      <Typography key={h.id} variant="caption" color="success.main" sx={{ display: 'block', lineHeight: 1.1 }}>
+                        + {h.name}
+                      </Typography>
+                    ))}
                   </TableCell>
                   <TableCell>{d.week}</TableCell>
                   <TableCell>{d.phase}</TableCell>
@@ -161,7 +166,7 @@ export function StreaksTrackerPage() {
                     </Select>
                   </TableCell>
                   {ordered.map((h, i) => {
-                    const active = h.activeFromPhase <= d.phase;
+                    const active = !h.startDate || h.startDate <= d.date;
                     const status = d.entries[h.id];
                     return (
                       <TableCell
@@ -188,7 +193,7 @@ export function StreaksTrackerPage() {
                       </TableCell>
                     );
                   })}
-                  <TableCell align="center">{d.logged ? `${d.done}/${d.needed}` : ''}</TableCell>
+                  <TableCell align="center">{d.logged ? `${d.done}/${d.applicable}` : ''}</TableCell>
                   <TableCell align="center">{d.score !== null ? `${Math.round(d.score * 100)}%` : ''}</TableCell>
                   <TableCell>{d.logged ? <ResultChip result={d.result} /> : null}</TableCell>
                 </TableRow>

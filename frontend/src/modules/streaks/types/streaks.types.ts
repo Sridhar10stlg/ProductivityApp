@@ -26,7 +26,7 @@ export interface Habit {
   id: number;
   name: string;
   group: HabitGroup;
-  activeFromPhase: number;
+  startDate: string | null; // counts toward the daily total from this date; null = from the beginning
   sortOrder: number;
   archived: boolean;
 }
@@ -95,7 +95,7 @@ export interface StreaksSummary {
 }
 
 export interface HabitStats {
-  habit: { id: number; name: string; group: HabitGroup; activeFromPhase: number; archived: boolean };
+  habit: { id: number; name: string; group: HabitGroup; startDate: string | null; archived: boolean };
   startDate: string;
   today: string;
   current: number;
@@ -119,7 +119,7 @@ export interface WeekStats {
 
 export interface WeeklyReview {
   goal: number;
-  habits: { id: number; name: string; group: HabitGroup; activeFromPhase: number }[];
+  habits: { id: number; name: string; group: HabitGroup; startDate: string | null }[];
   weeks: WeekStats[];
 }
 

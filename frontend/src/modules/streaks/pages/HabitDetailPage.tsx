@@ -97,7 +97,7 @@ export function HabitDetailPage() {
     <Box>
       <PageHeader
         title={habit.name}
-        subtitle={`${GROUP_LABELS[habit.group]} habit · from phase ${habit.activeFromPhase}${habit.archived ? ' · archived' : ''}`}
+        subtitle={`${GROUP_LABELS[habit.group]} habit${habit.startDate ? ` · counts from ${dayjs(habit.startDate).format('D MMM YYYY')}` : ''}${habit.archived ? ' · archived' : ''}`}
         actionLabel="Back"
         actionIcon={<ArrowBackIcon />}
         onAction={() => navigate(-1)}

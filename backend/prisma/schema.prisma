@@ -164,7 +164,8 @@ model Habit {
   id              Int          @id @default(autoincrement())
   name            String       @unique
   group           String       // ANCHOR, BODY, BRAIN
-  activeFromPhase Int          @default(1)
+  activeFromPhase Int          @default(1) // legacy: no longer used for scoring
+  startDate       String?      // "YYYY-MM-DD": counts toward the daily total from this date; null = from the beginning
   sortOrder       Int          @default(0)
   archived        Boolean      @default(false)
   createdAt       DateTime     @default(now())

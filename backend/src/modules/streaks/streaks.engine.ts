@@ -21,7 +21,8 @@ export interface EngineHabit {
   id: number;
   name: string;
   group: string;
-  activeFromPhase: number;
+  // "YYYY-MM-DD": the habit counts toward the day's total from this date. null = from the beginning.
+  startDate: string | null;
 }
 
 export interface DayRecord {
@@ -114,6 +115,9 @@ export function phaseForWeek(week: number, phases: EnginePhase[]): EnginePhase {
   return current;
 }
 
+// A habit counts toward a day's total once it has been added (its start date has been reached).
+export const countsOn = (habit: EngineHabit, date: string) => !habit.startDate || habit.startDate <= date;
+
 // ROUNDUP(threshold * count) with a small epsilon so 0.7 * 10 does not become 8.
 function roundUpShare(threshold: number, count: number): number {
   return Math.ceil(threshold * count - 1e-9);
@@ -124,7 +128,7 @@ export function scoreDay(date: string, record: DayRecord | undefined, ctx: Engin
   const phase = phaseForWeek(week, ctx.phases);
   const plan = record?.plan || 'A';
 
-  const activeHabits = ctx.habits.filter((h) => h.activeFromPhase <= phase.phase);
+  const activeHabits = ctx.habits.filter((h) => countsOn(h, date));
   const entries: Record<number, EntryStatus> = {};
   if (record) {
     for (const h of ctx.habits) {
@@ -233,8 +237,8 @@ export function habitChain(habit: EngineHabit, scores: DayScore[], today: string
   return scores.slice(-length).map((s) => {
     let state: HabitChainState;
     if (s.entries[habit.id]) state = s.entries[habit.id];
-    // A blank past day is missed for every habit, including ones whose phase has not started: it breaks the
-    // habit's streak, so the chain must show it the same way.
+    // Before the habit was added there is nothing to miss.
+    else if (!countsOn(habit, s.date)) state = 'INACTIVE';
     else state = s.date === today ? 'OPEN' : 'MISSED';
     return { date: s.date, state };
   });
@@ -260,13 +264,15 @@ export function weekStats(week: number, scores: DayScore[], ctx: EngineContext):
   const habitRates: Record<number, number | null> = {};
   let weakest: { name: string; rate: number } | null = null;
   for (const h of ctx.habits) {
-    if (loggedCount === 0 || h.activeFromPhase > phase) {
+    // Only days on which the habit already counted are part of its rate.
+    const relevant = days.filter((s) => s.logged && countsOn(h, s.date));
+    if (relevant.length === 0) {
       habitRates[h.id] = null;
       continue;
     }
-    const doneCount = days.filter((s) => s.entries[h.id] === 'DONE').length;
-    const naCount = days.filter((s) => s.entries[h.id] === 'NA').length;
-    const denominator = loggedCount - naCount;
+    const doneCount = relevant.filter((s) => s.entries[h.id] === 'DONE').length;
+    const naCount = relevant.filter((s) => s.entries[h.id] === 'NA').length;
+    const denominator = relevant.length - naCount;
     const rate = denominator > 0 ? doneCount / denominator : null;
     habitRates[h.id] = rate;
     if (rate !== null && (weakest === null || rate < weakest.rate)) weakest = { name: h.name, rate };

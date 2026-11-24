@@ -12,6 +12,7 @@ import {
   dateRange,
   habitChain,
   habitStreak,
+  countsOn,
   overallChain,
   overallStreak,
   scoreDay,
@@ -135,6 +136,7 @@ export async function createHabit(data: CreateHabitInput) {
       name: data.name,
       group: data.group,
       activeFromPhase: data.activeFromPhase ?? 1,
+      startDate: data.startDate ?? null,
       sortOrder: (last._max.sortOrder ?? -1) + 1,
     },
   });
@@ -145,6 +147,7 @@ export async function updateHabit(id: number, data: UpdateHabitInput) {
   if (data.name !== undefined) updateData.name = data.name;
   if (data.group !== undefined) updateData.group = data.group;
   if (data.activeFromPhase !== undefined) updateData.activeFromPhase = data.activeFromPhase;
+  if (data.startDate !== undefined) updateData.startDate = data.startDate;
   if (data.archived !== undefined) updateData.archived = data.archived;
 
   return prisma.habit.update({ where: { id }, data: updateData });
@@ -179,7 +182,7 @@ async function loadContext(): Promise<EngineContext> {
   }));
   const engineHabits: EngineHabit[] = habits
     .filter((h) => !h.archived)
-    .map((h) => ({ id: h.id, name: h.name, group: h.group, activeFromPhase: h.activeFromPhase }));
+    .map((h) => ({ id: h.id, name: h.name, group: h.group, startDate: h.startDate }));
   return { settings: engineSettings, phases: enginePhases, habits: engineHabits };
 }
 
@@ -288,7 +291,7 @@ export async function getSummary() {
     habitId: h.id,
     name: h.name,
     group: h.group,
-    activeToday: h.activeFromPhase <= todayScore.phase,
+    activeToday: countsOn(h, today),
     ...habitStreak(h, habitScores, today),
     chain: habitChain(h, habitScores, today, CHAIN_LENGTH),
   }));
@@ -335,7 +338,7 @@ export async function getWeekly() {
 
   return {
     goal: ctx.settings.weeklyGoal,
-    habits: ctx.habits.map((h) => ({ id: h.id, name: h.name, group: h.group, activeFromPhase: h.activeFromPhase })),
+    habits: ctx.habits.map((h) => ({ id: h.id, name: h.name, group: h.group, startDate: h.startDate })),
     weeks,
   };
 }
@@ -359,7 +362,7 @@ export async function getHabitStats(id: number) {
   const { habitScores } = await buildScores(ctx, today);
 
   // Archived habits are not in the scoring context but can still be viewed.
-  const engineHabit: EngineHabit = { id: habit.id, name: habit.name, group: habit.group, activeFromPhase: habit.activeFromPhase };
+  const engineHabit: EngineHabit = { id: habit.id, name: habit.name, group: habit.group, startDate: habit.startDate };
   const streak = habitStreak(engineHabit, habitScores, today);
 
   const rows = await prisma.habitEntry.findMany({
@@ -374,7 +377,7 @@ export async function getHabitStats(id: number) {
       id: habit.id,
       name: habit.name,
       group: habit.group,
-      activeFromPhase: habit.activeFromPhase,
+      startDate: habit.startDate,
       archived: habit.archived,
     },
     startDate: ctx.settings.startDate,

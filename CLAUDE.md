@@ -102,6 +102,10 @@ Weekly, LeetCode, Settings.
 - Settings (start date, thresholds, weekly goal, LeetCode gates), phases and habits are all editable
   in the Settings page. Defaults (the workbook's phases and 19 habits) are created lazily by
   `ensureDefaults()` on first use, not by `prisma db seed`.
+- **Score = habits done / habits counted that day.** Every non-archived habit counts, so 5/20 means 5 of 20.
+  A habit has an optional `startDate`; before it the habit is not in the total, so adding a habit later
+  changes /19 to /20 from that date only. Phases no longer gate habits: they only set the Brain-habit minimum
+  (`Habit.activeFromPhase` is legacy and unused for scoring).
 - Archiving a habit (switch off) keeps its history but excludes it from scoring; deleting cascades.
 - Import reads the workbook by sheet/header names (Settings, Tracker, LeetCode log); export writes
   the same layout. Import with `overwriteSettings` (default true) replaces start date, thresholds,

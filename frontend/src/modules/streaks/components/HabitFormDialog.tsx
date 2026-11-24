@@ -1,40 +1,40 @@
 import { useEffect, useState } from 'react';
+import dayjs from 'dayjs';
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, TextField } from '@mui/material';
 import { useCreateHabitMutation, useUpdateHabitMutation } from '../store/streaksApi';
 import { GROUP_LABELS } from '../types/streaks.types';
-import type { Habit, HabitGroup, HabitPhase } from '../types/streaks.types';
+import type { Habit, HabitGroup } from '../types/streaks.types';
 
 interface HabitFormDialogProps {
   open: boolean;
   onClose: () => void;
   habit?: Habit | null;
-  phases: HabitPhase[];
 }
 
-export function HabitFormDialog({ open, onClose, habit, phases }: HabitFormDialogProps) {
+export function HabitFormDialog({ open, onClose, habit }: HabitFormDialogProps) {
   const [createHabit, { isLoading: isCreating }] = useCreateHabitMutation();
   const [updateHabit, { isLoading: isUpdating }] = useUpdateHabitMutation();
 
   const [name, setName] = useState('');
   const [group, setGroup] = useState<HabitGroup>('ANCHOR');
-  const [activeFromPhase, setActiveFromPhase] = useState(1);
+  const [startDate, setStartDate] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setName(habit?.name ?? '');
     setGroup(habit?.group ?? 'ANCHOR');
-    setActiveFromPhase(habit?.activeFromPhase ?? 1);
+    // A new habit counts from today so past days keep their old total.
+    setStartDate(habit ? habit.startDate ?? '' : dayjs().format('YYYY-MM-DD'));
     setError(null);
   }, [open, habit]);
 
-  const phaseNumbers = phases.map((p) => p.phase).sort((a, b) => a - b);
-
   const handleSubmit = async () => {
     if (!name.trim()) return;
+    const start = startDate || null;
     try {
-      if (habit) await updateHabit({ id: habit.id, data: { name: name.trim(), group, activeFromPhase } }).unwrap();
-      else await createHabit({ name: name.trim(), group, activeFromPhase }).unwrap();
+      if (habit) await updateHabit({ id: habit.id, data: { name: name.trim(), group, startDate: start } }).unwrap();
+      else await createHabit({ name: name.trim(), group, startDate: start }).unwrap();
       onClose();
     } catch {
       setError('Could not save. Habit names must be unique.');
@@ -62,17 +62,14 @@ export function HabitFormDialog({ open, onClose, habit, phases }: HabitFormDialo
             ))}
           </TextField>
           <TextField
-            select
-            label="Active from phase"
-            value={activeFromPhase}
-            onChange={(e) => setActiveFromPhase(Number(e.target.value))}
-            helperText="The habit only counts toward the score from this phase onward"
+            label="Counts from"
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            helperText="The daily total (for example 5/20) includes this habit from this date on. Leave empty to count it on every day."
             fullWidth
-          >
-            {phaseNumbers.map((p) => (
-              <MenuItem key={p} value={p}>Phase {p}</MenuItem>
-            ))}
-          </TextField>
+          />
         </Box>
       </DialogContent>
       <DialogActions>
