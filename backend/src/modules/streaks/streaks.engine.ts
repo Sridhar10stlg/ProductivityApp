@@ -205,8 +205,8 @@ export function habitStreak(habit: EngineHabit, scores: DayScore[], today: strin
   let best = 0;
   for (const s of scores) {
     const status = s.entries[habit.id];
-    // Before its phase a habit is optional: doing it early extends the streak, skipping it is neutral.
-    if (habit.activeFromPhase > s.phase && status !== 'DONE') continue;
+    // A streak is consecutive days: a blank past day breaks it, even for a habit whose phase has not
+    // started yet (those days still don't count toward the day's score, only toward this streak).
     if (status === 'DONE') {
       run++;
       best = Math.max(best, run);
