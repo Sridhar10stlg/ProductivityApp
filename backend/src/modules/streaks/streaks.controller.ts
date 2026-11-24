@@ -87,3 +87,10 @@ export async function weekly(_req: Request, res: Response) {
   const data = await service.getWeekly();
   res.json({ success: true, data });
 }
+
+export async function habitStats(req: Request, res: Response) {
+  const id = parseInt(req.params.id, 10);
+  if (Number.isNaN(id)) throw new Error('Invalid habit id');
+  const data = await service.getHabitStats(id);
+  res.json({ success: true, data });
+}

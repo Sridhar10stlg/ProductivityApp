@@ -19,6 +19,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import WhatshotIcon from '@mui/icons-material/Whatshot';
+import { Link as RouterLink } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { LoadingSpinner } from '../../../shared/components/LoadingSpinner';
@@ -281,14 +282,22 @@ export function StreaksTodayPage() {
 
             {summary.habits.map((h) => (
               <Box key={h.habitId} sx={{ display: 'contents' }}>
-                <Typography variant="body2" noWrap sx={{ color: GROUP_COLORS[h.group] }}>{h.name}</Typography>
+                <Typography
+                  component={RouterLink}
+                  to={`/streaks/habit/${h.habitId}`}
+                  variant="body2"
+                  noWrap
+                  sx={{ color: GROUP_COLORS[h.group], textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+                >
+                  {h.name}
+                </Typography>
                 <Typography variant="caption" color="text.secondary">{h.current} / best {h.best}</Typography>
                 <StreakChain chain={h.chain} />
               </Box>
             ))}
           </Box>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
-            Last 14 days, oldest to newest. Green = done, grey = not applicable (skipped, does not break the chain),
+            Click a habit name for its full dashboard. Last 14 days, oldest to newest. Green = done, grey = not applicable (skipped, does not break the chain),
             pink = missed, dashed = today still open. A fully blank past day counts as missed.
           </Typography>
         </CardContent>

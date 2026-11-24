@@ -94,6 +94,15 @@ export interface StreaksSummary {
   totals: { loggedDays: number; productiveDays: number };
 }
 
+export interface HabitStats {
+  habit: { id: number; name: string; group: HabitGroup; activeFromPhase: number; archived: boolean };
+  startDate: string;
+  today: string;
+  current: number;
+  best: number;
+  entries: Record<string, EntryStatus>;
+}
+
 export interface WeekStats {
   week: number;
   start: string;

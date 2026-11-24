@@ -341,3 +341,39 @@ export async function getPlanYear(days = 365) {
   const records = await loadRecords();
   return { ctx, scores: scoreRange(start, addDays(start, days - 1), records, ctx) };
 }
+
+// ─── Single-habit dashboard ─────────────────────────────────
+
+export async function getHabitStats(id: number) {
+  const habit = await prisma.habit.findUnique({ where: { id } });
+  if (!habit) throw new Error('Habit not found');
+
+  const ctx = await loadContext();
+  const today = todayString();
+  const { upToToday } = await buildScores(ctx, today);
+
+  // Archived habits are not in the scoring context but can still be viewed.
+  const engineHabit: EngineHabit = { id: habit.id, name: habit.name, group: habit.group, activeFromPhase: habit.activeFromPhase };
+  const streak = habitStreak(engineHabit, upToToday, today);
+
+  const rows = await prisma.habitEntry.findMany({
+    where: { habitId: id },
+    include: { day: { select: { date: true } } },
+  });
+  const entries: Record<string, EntryStatus> = {};
+  for (const r of rows) entries[r.day.date] = r.status as EntryStatus;
+
+  return {
+    habit: {
+      id: habit.id,
+      name: habit.name,
+      group: habit.group,
+      activeFromPhase: habit.activeFromPhase,
+      archived: habit.archived,
+    },
+    startDate: ctx.settings.startDate,
+    today,
+    ...streak,
+    entries,
+  };
+}

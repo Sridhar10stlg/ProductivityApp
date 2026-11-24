@@ -13,6 +13,7 @@ import type {
   LeetCodeFormData,
   StreaksImportResult,
   HabitGroup,
+  HabitStats,
 } from '../types/streaks.types';
 
 interface ApiResponse<T> {
@@ -94,6 +95,12 @@ export const streaksApi = createApi({
       providesTags: ['StreakDay', 'StreakConfig'],
     }),
 
+    getHabitStats: builder.query<HabitStats, number>({
+      query: (id) => `/habits/${id}/stats`,
+      transformResponse: (response: ApiResponse<HabitStats>) => response.data,
+      providesTags: ['StreakDay', 'StreakConfig'],
+    }),
+
     // ─── LeetCode ───
     getLeetCode: builder.query<LeetCodeData, void>({
       query: () => '/leetcode',
@@ -143,6 +150,7 @@ export const {
   useSaveDayMutation,
   useGetSummaryQuery,
   useGetWeeklyQuery,
+  useGetHabitStatsQuery,
   useGetLeetCodeQuery,
   useCreateLeetCodeMutation,
   useUpdateLeetCodeMutation,

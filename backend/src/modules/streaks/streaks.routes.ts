@@ -10,6 +10,7 @@ router.put('/settings', asyncHandler(controller.updateSettings));
 router.put('/phases', asyncHandler(controller.replacePhases));
 router.post('/habits', asyncHandler(controller.createHabit));
 router.put('/habits/order', asyncHandler(controller.reorderHabits)); // before /habits/:id
+router.get('/habits/:id/stats', asyncHandler(controller.habitStats));
 router.put('/habits/:id', asyncHandler(controller.updateHabit));
 router.delete('/habits/:id', asyncHandler(controller.removeHabit));
 

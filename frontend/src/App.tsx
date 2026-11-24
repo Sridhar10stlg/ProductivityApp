@@ -10,6 +10,7 @@ import { WorklogPage } from './modules/worklog/pages/WorklogPage';
 import { StreaksTodayPage } from './modules/streaks/pages/StreaksTodayPage';
 import { StreaksTrackerPage } from './modules/streaks/pages/StreaksTrackerPage';
 import { StreaksWeeklyPage } from './modules/streaks/pages/StreaksWeeklyPage';
+import { HabitDetailPage } from './modules/streaks/pages/HabitDetailPage';
 import { LeetCodePage } from './modules/streaks/pages/LeetCodePage';
 import { StreaksSettingsPage } from './modules/streaks/pages/StreaksSettingsPage';
 
@@ -27,6 +28,7 @@ function App() {
         <Route path="/streaks" element={<StreaksTodayPage />} />
         <Route path="/streaks/tracker" element={<StreaksTrackerPage />} />
         <Route path="/streaks/weekly" element={<StreaksWeeklyPage />} />
+        <Route path="/streaks/habit/:id" element={<HabitDetailPage />} />
         <Route path="/streaks/leetcode" element={<LeetCodePage />} />
         <Route path="/streaks/settings" element={<StreaksSettingsPage />} />
       </Routes>

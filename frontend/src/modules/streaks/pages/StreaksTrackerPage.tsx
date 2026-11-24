@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import { Link as RouterLink } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { LoadingSpinner } from '../../../shared/components/LoadingSpinner';
@@ -99,9 +100,18 @@ export function StreaksTrackerPage() {
                   }}
                 >
                   <Typography
+                    component={RouterLink}
+                    to={`/streaks/habit/${h.id}`}
                     variant="caption"
                     fontWeight={600}
-                    sx={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', display: 'inline-block' }}
+                    sx={{
+                      writingMode: 'vertical-rl',
+                      transform: 'rotate(180deg)',
+                      display: 'inline-block',
+                      color: 'inherit',
+                      textDecoration: 'none',
+                      '&:hover': { textDecoration: 'underline' },
+                    }}
                   >
                     {h.name}
                   </Typography>
