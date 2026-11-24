@@ -64,48 +64,102 @@ interface ExcelRow {
   wallet: string;
 }
 
+// Accepted header names (lowercased, non-alphanumerics stripped) for each logical column.
+const HEADER_ALIASES: Record<string, string[]> = {
+  date: ['date', 'transactiondate', 'txndate', 'day'],
+  category: ['category', 'categoryname'],
+  remark: ['remark', 'remarks', 'description', 'note', 'notes', 'memo', 'details'],
+  out: ['amountout', 'expense', 'expenses', 'debit', 'withdrawal', 'out'],
+  in: ['amountin', 'income', 'credit', 'deposit', 'in'],
+  amount: ['amount', 'amt', 'value'],
+  type: ['type', 'transactiontype'],
+  wallet: ['wallet', 'account', 'accountname', 'paymentmethod'],
+};
+
+const normalizeHeader = (h: unknown) => String(h ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+function mapColumns(headerRow: unknown[]): Record<string, number> {
+  const normalized = headerRow.map(normalizeHeader);
+  const cols: Record<string, number> = {};
+  for (const [field, aliases] of Object.entries(HEADER_ALIASES)) {
+    const idx = normalized.findIndex((h) => aliases.includes(h));
+    if (idx >= 0) cols[field] = idx;
+  }
+  return cols;
+}
+
+function toNumber(v: unknown): number | null {
+  if (v == null || v === '') return null;
+  const n = parseFloat(String(v).replace(/[^0-9.\-]/g, ''));
+  return Number.isNaN(n) ? null : n;
+}
+
 function parseExcelRows(buffer: Buffer): ExcelRow[] {
-  const workbook = XLSX.read(buffer, { type: 'buffer' });
-  const sheetName = workbook.SheetNames[0];
-  const sheet = workbook.Sheets[sheetName];
-  const rawData = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1 });
+  const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const rawData = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, raw: true });
+
+  // Find the header row (tolerates title rows above it): first row with both Date and Category.
+  let headerIdx = -1;
+  let cols: Record<string, number> = {};
+  for (let i = 0; i < Math.min(rawData.length, 10); i++) {
+    const candidate = mapColumns((rawData[i] as unknown[]) || []);
+    if (candidate.date !== undefined && candidate.category !== undefined) {
+      headerIdx = i;
+      cols = candidate;
+      break;
+    }
+  }
+  if (headerIdx < 0) {
+    throw new Error('Could not find a header row with "Date" and "Category" columns');
+  }
+  const hasAmounts = cols.out !== undefined || cols.in !== undefined || cols.amount !== undefined;
+  if (!hasAmounts) {
+    throw new Error('No amount column found (expected "Amount In"/"Amount Out" or "Amount")');
+  }
+
+  const cell = (row: unknown[], field: string) => (cols[field] !== undefined ? row[cols[field]] : undefined);
 
   const rows: ExcelRow[] = [];
-  // Skip header row
-  for (let i = 1; i < rawData.length; i++) {
-    const row = rawData[i] as (string | number | null)[];
-    if (!row || !row[0]) continue;
+  for (let i = headerIdx + 1; i < rawData.length; i++) {
+    const row = rawData[i] as unknown[];
+    const rawDate = row && cell(row, 'date');
+    if (!rawDate) continue;
 
-    const amountOutRaw = row[3];
-    const amountInRaw = row[5];
+    let amountOut = toNumber(cell(row, 'out'));
+    let amountIn = toNumber(cell(row, 'in'));
+
+    // Single "Amount" column: use a Type column if present, otherwise the sign (negative = expense).
+    const single = toNumber(cell(row, 'amount'));
+    if (amountOut == null && amountIn == null && single != null) {
+      const typeText = String(cell(row, 'type') ?? '').toLowerCase();
+      const isIncome = typeText ? typeText.startsWith('inc') || typeText.startsWith('cr') : single > 0;
+      if (isIncome) amountIn = Math.abs(single);
+      else amountOut = Math.abs(single);
+    }
+
+    const category = cell(row, 'category');
+    const remark = cell(row, 'remark');
+    const wallet = cell(row, 'wallet');
 
     rows.push({
-      date: String(row[0]).trim(),
-      category: row[1] ? String(row[1]).trim() : 'Unknown',
-      remark: row[2] ? String(row[2]).trim() : '',
-      amountOut: amountOutRaw != null ? Math.abs(parseFloat(String(amountOutRaw))) : null,
-      amountIn: amountInRaw != null ? parseFloat(String(amountInRaw)) : null,
-      wallet: row[7] ? String(row[7]).trim() : 'Cash',
+      date: rawDate instanceof Date ? dayjs(rawDate).format('YYYY-MM-DD') : String(rawDate).trim(),
+      category: category ? String(category).trim() : 'Unknown',
+      remark: remark ? String(remark).trim() : '',
+      amountOut: amountOut != null ? Math.abs(amountOut) : null,
+      amountIn,
+      wallet: wallet ? String(wallet).trim() : 'Cash',
     });
   }
 
   return rows;
 }
 
+const DATE_FORMATS = ['DD/MMM/YYYY', 'DD-MMM-YYYY', 'YYYY-MM-DD', 'DD/MM/YYYY', 'DD-MM-YYYY', 'MM/DD/YYYY'];
+
 function parseDate(dateStr: string): Date {
-  // Try DD/Mon/YYYY format (e.g., "01/Nov/2025")
-  const parsed = dayjs(dateStr, 'DD/MMM/YYYY');
+  const parsed = dayjs(dateStr, DATE_FORMATS, true);
   if (parsed.isValid()) return parsed.toDate();
-
-  // Try YYYY-MM-DD
-  const iso = dayjs(dateStr, 'YYYY-MM-DD');
-  if (iso.isValid()) return iso.toDate();
-
-  // Try MM/DD/YYYY
-  const us = dayjs(dateStr, 'MM/DD/YYYY');
-  if (us.isValid()) return us.toDate();
-
-  // Fallback
   return new Date(dateStr);
 }
 
