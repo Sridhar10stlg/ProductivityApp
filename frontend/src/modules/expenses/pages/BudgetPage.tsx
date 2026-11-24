@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Box,
   Grid,
@@ -10,16 +10,25 @@ import {
   Chip,
   Fab,
   alpha,
+  Button,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import dayjs from 'dayjs';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { LoadingSpinner } from '../../../shared/components/LoadingSpinner';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { BudgetFormDialog } from '../components/BudgetFormDialog';
+import { AccountFilter } from '../components/AccountFilter';
 import { getIcon } from '../../../shared/components/IconPicker';
 import {
   useGetBudgetSummaryQuery,
@@ -39,6 +48,34 @@ const PERIOD_COLORS: Record<string, string> = {
   MONTHLY: '#1976d2',
   YEARLY: '#7b1fa2',
 };
+
+type PeriodFilter = 'ALL' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
+type StatusFilter = 'ALL' | 'ON_TRACK' | 'NEAR_LIMIT' | 'OVER';
+type SortKey = 'PERCENT_DESC' | 'PERCENT_ASC' | 'AMOUNT_DESC' | 'REMAINING_ASC' | 'NAME';
+
+const STATUS_LABELS: Record<StatusFilter, string> = {
+  ALL: 'All',
+  ON_TRACK: 'On track (under 80%)',
+  NEAR_LIMIT: 'Near limit (80-99%)',
+  OVER: 'Over budget (100%+)',
+};
+
+const SORT_LABELS: Record<SortKey, string> = {
+  PERCENT_DESC: '% used (high to low)',
+  PERCENT_ASC: '% used (low to high)',
+  AMOUNT_DESC: 'Budget amount (high to low)',
+  REMAINING_ASC: 'Remaining (least first)',
+  NAME: 'Category (A-Z)',
+};
+
+function matchesStatus(percentage: number, status: StatusFilter): boolean {
+  switch (status) {
+    case 'ON_TRACK': return percentage < 80;
+    case 'NEAR_LIMIT': return percentage >= 80 && percentage < 100;
+    case 'OVER': return percentage >= 100;
+    default: return true;
+  }
+}
 
 function getProgressColor(percentage: number): string {
   if (percentage >= 100) return '#d32f2f';
@@ -63,7 +100,14 @@ export function BudgetPage() {
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BudgetSummaryItem | null>(null);
 
-  const { data: budgetSummary = [], isLoading: summaryLoading } = useGetBudgetSummaryQuery();
+  const [selectedAccounts, setSelectedAccounts] = useState<number[]>([]);
+  const [period, setPeriod] = useState<PeriodFilter>('ALL');
+  const [categoryId, setCategoryId] = useState<number | ''>('');
+  const [status, setStatus] = useState<StatusFilter>('ALL');
+  const [sortKey, setSortKey] = useState<SortKey>('PERCENT_DESC');
+
+  const accountIds = selectedAccounts.length > 0 ? selectedAccounts.join(',') : undefined;
+  const { data: allSummary = [], isLoading: summaryLoading } = useGetBudgetSummaryQuery({ accountIds });
   const { data: budgets = [] } = useGetBudgetsQuery();
   const [deleteBudget] = useDeleteBudgetMutation();
 
@@ -87,6 +131,46 @@ export function BudgetPage() {
     setEditingBudget(null);
   };
 
+  const categoryOptions = useMemo(() => {
+    const seen = new Map<number, string>();
+    allSummary.forEach((b) => seen.set(b.categoryId, b.categoryName));
+    return Array.from(seen, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [allSummary]);
+
+  const periodCounts = useMemo(() => {
+    const counts: Record<string, number> = { WEEKLY: 0, MONTHLY: 0, YEARLY: 0 };
+    allSummary.forEach((b) => { counts[b.period] = (counts[b.period] || 0) + 1; });
+    return counts;
+  }, [allSummary]);
+
+  const budgetSummary = useMemo(() => {
+    const filtered = allSummary.filter(
+      (b) =>
+        (period === 'ALL' || b.period === period) &&
+        (categoryId === '' || b.categoryId === categoryId) &&
+        matchesStatus(b.percentage, status)
+    );
+    return [...filtered].sort((a, b) => {
+      switch (sortKey) {
+        case 'PERCENT_ASC': return a.percentage - b.percentage;
+        case 'AMOUNT_DESC': return b.budgetAmount - a.budgetAmount;
+        case 'REMAINING_ASC': return a.remaining - b.remaining;
+        case 'NAME': return a.categoryName.localeCompare(b.categoryName);
+        default: return b.percentage - a.percentage;
+      }
+    });
+  }, [allSummary, period, categoryId, status, sortKey]);
+
+  const filtersActive =
+    selectedAccounts.length > 0 || period !== 'ALL' || categoryId !== '' || status !== 'ALL';
+
+  const clearFilters = () => {
+    setSelectedAccounts([]);
+    setPeriod('ALL');
+    setCategoryId('');
+    setStatus('ALL');
+  };
+
   const totalBudget = budgetSummary.reduce((sum, b) => sum + b.budgetAmount, 0);
   const totalSpent = budgetSummary.reduce((sum, b) => sum + b.spent, 0);
   const overBudgetCount = budgetSummary.filter((b) => b.percentage >= 100).length;
@@ -98,6 +182,75 @@ export function BudgetPage() {
   return (
     <Box>
       <PageHeader title="Budgets" subtitle="Track spending against your category budgets" />
+
+      {allSummary.length > 0 && (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, mb: 3 }}>
+          <ToggleButtonGroup
+            size="small"
+            exclusive
+            value={period}
+            onChange={(_, v: PeriodFilter | null) => v && setPeriod(v)}
+          >
+            <ToggleButton value="ALL">All ({allSummary.length})</ToggleButton>
+            {(['WEEKLY', 'MONTHLY', 'YEARLY'] as const).map((p) => (
+              <ToggleButton key={p} value={p} disabled={periodCounts[p] === 0}>
+                {PERIOD_LABELS[p]} ({periodCounts[p]})
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel id="budget-category-label">Category</InputLabel>
+            <Select
+              labelId="budget-category-label"
+              label="Category"
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value as number | '')}
+            >
+              <MenuItem value="">All Categories</MenuItem>
+              {categoryOptions.map((c) => (
+                <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel id="budget-status-label">Status</InputLabel>
+            <Select
+              labelId="budget-status-label"
+              label="Status"
+              value={status}
+              onChange={(e) => setStatus(e.target.value as StatusFilter)}
+            >
+              {(Object.keys(STATUS_LABELS) as StatusFilter[]).map((k) => (
+                <MenuItem key={k} value={k}>{STATUS_LABELS[k]}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <AccountFilter value={selectedAccounts} onChange={setSelectedAccounts} />
+
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel id="budget-sort-label">Sort by</InputLabel>
+            <Select
+              labelId="budget-sort-label"
+              label="Sort by"
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as SortKey)}
+            >
+              {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+                <MenuItem key={k} value={k}>{SORT_LABELS[k]}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {filtersActive && (
+            <Button size="small" startIcon={<FilterAltOffIcon />} onClick={clearFilters}>
+              Clear filters
+            </Button>
+          )}
+        </Box>
+      )}
 
       {budgetSummary.length > 0 && (
         <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -134,11 +287,17 @@ export function BudgetPage() {
         </Grid>
       )}
 
-      {budgetSummary.length === 0 ? (
+      {allSummary.length === 0 ? (
         <EmptyState
           message="No budgets set yet"
           actionLabel="Add your first budget"
           onAction={() => setFormOpen(true)}
+        />
+      ) : budgetSummary.length === 0 ? (
+        <EmptyState
+          message="No budgets match these filters"
+          actionLabel="Clear filters"
+          onAction={clearFilters}
         />
       ) : (
         <Grid container spacing={2}>

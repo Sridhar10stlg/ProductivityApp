@@ -29,7 +29,8 @@ export async function remove(req: Request, res: Response) {
   res.json({ success: true, data: null });
 }
 
-export async function summary(_req: Request, res: Response) {
-  const result = await budgetService.getBudgetSummary();
+export async function summary(req: Request, res: Response) {
+  const accountIds = typeof req.query.accountIds === 'string' ? req.query.accountIds : undefined;
+  const result = await budgetService.getBudgetSummary(accountIds);
   res.json({ success: true, data: result });
 }

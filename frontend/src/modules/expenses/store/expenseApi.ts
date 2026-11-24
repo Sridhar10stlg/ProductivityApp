@@ -106,8 +106,8 @@ export const transactionApi = createApi({
       providesTags: ['Budget'],
     }),
 
-    getBudgetSummary: builder.query<BudgetSummaryItem[], void>({
-      query: () => '/budgets/summary',
+    getBudgetSummary: builder.query<BudgetSummaryItem[], { accountIds?: string } | void>({
+      query: (params) => ({ url: '/budgets/summary', params: params || undefined }),
       transformResponse: (response: ApiResponse<BudgetSummaryItem[]>) => response.data,
       providesTags: ['Budget', 'Transaction'],
     }),

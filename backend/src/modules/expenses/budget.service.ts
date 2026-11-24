@@ -71,7 +71,11 @@ function getPeriodRange(period: string, referenceDate: dayjs.Dayjs) {
   }
 }
 
-export async function getBudgetSummary() {
+export async function getBudgetSummary(accountIds?: string) {
+  const ids = accountIds
+    ? accountIds.split(',').map((x) => parseInt(x.trim(), 10)).filter((n) => !isNaN(n))
+    : [];
+
   const budgets = await prisma.budget.findMany({
     include: { category: true },
   });
@@ -87,6 +91,7 @@ export async function getBudgetSummary() {
         categoryId: budget.categoryId,
         type: 'EXPENSE',
         date: { gte: start, lte: end },
+        ...(ids.length > 0 && { accountId: { in: ids } }),
       },
       _sum: { amount: true },
     });
