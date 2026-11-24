@@ -34,7 +34,7 @@ export function StreaksWeeklyPage() {
           <CardContent sx={{ textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">Weeks in a row meeting the goal</Typography>
             <Typography variant="h4" fontWeight={700}>{summary.weeklyGoalStreak.current}</Typography>
-            <Typography variant="caption" color="text.secondary">best {summary.weeklyGoalStreak.best}</Typography>
+            <Typography variant="caption" color="text.secondary">current {summary.weeklyGoalStreak.current} / best {summary.weeklyGoalStreak.best}</Typography>
           </CardContent>
         </Card>
         <Card sx={{ minWidth: 200 }}>

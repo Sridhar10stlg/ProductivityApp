@@ -1,3 +1,4 @@
+import { splitNewAndDuplicate, normText } from '../../shared/utils/dedupe';
 import * as XLSX from 'xlsx';
 import prisma from '../../shared/db/prisma';
 import dayjs from 'dayjs';
@@ -250,15 +251,34 @@ export async function importFromExcel(buffer: Buffer) {
     });
   }
 
+  // Skip rows already in the database (same date, type, amount, account, category and description),
+  // so importing the same file twice does not double every transaction.
+  type NewTransaction = (typeof transactionsToCreate)[number];
+  let duplicates = 0;
+  let toInsert = transactionsToCreate;
+  if (transactionsToCreate.length > 0) {
+    const times = transactionsToCreate.map((t) => t.date.getTime());
+    const existing = await prisma.transaction.findMany({
+      where: { date: { gte: new Date(Math.min(...times)), lte: new Date(Math.max(...times)) } },
+      select: { type: true, amount: true, description: true, date: true, categoryId: true, accountId: true },
+    });
+    const keyOf = (t: NewTransaction) =>
+      [t.type, t.date.getTime(), t.amount.toFixed(2), t.accountId, t.categoryId, normText(t.description)].join('|');
+    const split = splitNewAndDuplicate(transactionsToCreate, existing.map(keyOf), keyOf);
+    toInsert = split.fresh;
+    duplicates = split.duplicates;
+  }
+
   // Batch insert
   const result = await prisma.transaction.createMany({
-    data: transactionsToCreate,
+    data: toInsert,
   });
   imported = result.count;
 
   return {
     totalRows: rows.length,
     imported,
+    duplicates,
     skipped,
     accountsCreated: accountNames.size,
     categoriesCreated: categoryKeys.size,

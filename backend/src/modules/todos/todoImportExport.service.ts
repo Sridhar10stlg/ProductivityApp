@@ -1,3 +1,4 @@
+import { splitNewAndDuplicate, normText } from '../../shared/utils/dedupe';
 import * as XLSX from 'xlsx';
 import prisma from '../../shared/db/prisma';
 import dayjs from 'dayjs';
@@ -17,6 +18,7 @@ interface ParsedTask {
 
 interface ImportResult {
   tasksImported: number;
+  tasksSkipped: number;
   subtasksImported: number;
   listName: string;
 }
@@ -286,16 +288,33 @@ export async function importTasks(
   if (listId) {
     targetListId = listId;
   } else {
-    const newList = await prisma.taskList.create({
-      data: { name: targetListName, icon: 'FileDownload', color: '#1976d2' },
-    });
-    targetListId = newList.id;
+    // Reuse a list with this name so importing the same file again lands in the same list.
+    const sameName = (await prisma.taskList.findMany()).find(
+      (l) => l.name.toLowerCase() === targetListName.toLowerCase()
+    );
+    if (sameName) {
+      targetListId = sameName.id;
+    } else {
+      const newList = await prisma.taskList.create({
+        data: { name: targetListName, icon: 'FileDownload', color: '#1976d2' },
+      });
+      targetListId = newList.id;
+    }
   }
+
+  // Skip tasks whose title is already in the list. Counted, so two same-titled tasks in the file
+  // are only skipped as often as the list already holds them.
+  const existingTasks = await prisma.task.findMany({ where: { listId: targetListId }, select: { title: true } });
+  const { fresh: newTasks, duplicates: tasksSkipped } = splitNewAndDuplicate(
+    parsed,
+    existingTasks.map((t) => normText(t.title)),
+    (t) => normText(t.title)
+  );
 
   let tasksImported = 0;
   let subtasksImported = 0;
 
-  for (const task of parsed) {
+  for (const task of newTasks) {
     const created = await prisma.task.create({
       data: {
         title: task.title,
@@ -322,6 +341,7 @@ export async function importTasks(
 
   return {
     tasksImported,
+    tasksSkipped,
     subtasksImported,
     listName: list?.name || targetListName,
   };

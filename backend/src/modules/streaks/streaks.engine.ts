@@ -233,7 +233,8 @@ export function habitChain(habit: EngineHabit, scores: DayScore[], today: string
   return scores.slice(-length).map((s) => {
     let state: HabitChainState;
     if (s.entries[habit.id]) state = s.entries[habit.id];
-    else if (habit.activeFromPhase > s.phase) state = 'INACTIVE';
+    // A blank past day is missed for every habit, including ones whose phase has not started: it breaks the
+    // habit's streak, so the chain must show it the same way.
     else state = s.date === today ? 'OPEN' : 'MISSED';
     return { date: s.date, state };
   });

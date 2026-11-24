@@ -131,7 +131,7 @@ export const transactionApi = createApi({
 
     // Import/Export
     importExcel: builder.mutation<
-      { totalRows: number; imported: number; skipped: number; accountsCreated: number; categoriesCreated: number },
+      { totalRows: number; imported: number; duplicates: number; skipped: number; accountsCreated: number; categoriesCreated: number },
       FormData
     >({
       query: (formData) => ({
@@ -139,7 +139,7 @@ export const transactionApi = createApi({
         method: 'POST',
         body: formData,
       }),
-      transformResponse: (response: ApiResponse<{ totalRows: number; imported: number; skipped: number; accountsCreated: number; categoriesCreated: number }>) => response.data,
+      transformResponse: (response: ApiResponse<{ totalRows: number; imported: number; duplicates: number; skipped: number; accountsCreated: number; categoriesCreated: number }>) => response.data,
       invalidatesTags: ['Transaction', 'Summary', 'Category', 'Account'],
     }),
   }),

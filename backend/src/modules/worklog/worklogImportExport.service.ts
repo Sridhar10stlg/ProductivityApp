@@ -1,3 +1,4 @@
+import { splitNewAndDuplicate, normText } from '../../shared/utils/dedupe';
 import * as XLSX from 'xlsx';
 import dayjs from 'dayjs';
 
@@ -152,7 +153,7 @@ function parseJson(buffer: Buffer): ParsedEntry[] {
 export async function importWorklog(
   buffer: Buffer,
   format: 'xlsx' | 'json' | 'csv',
-): Promise<{ imported: number }> {
+): Promise<{ imported: number; duplicates: number }> {
   let parsed: ParsedEntry[] = [];
 
   switch (format) {
@@ -171,7 +172,42 @@ export async function importWorklog(
     throw new Error('No valid worklog entries found in the uploaded file');
   }
 
-  for (const entry of parsed) {
+  // Skip entries already in the worklog (same date and all text fields), so re-importing is safe.
+  const dated = parsed.map((e) => ({ ...e, time: new Date(e.date).getTime() }));
+  const times = dated.map((e) => e.time).filter((t) => !Number.isNaN(t));
+  const existing: { date: Date }[] & Record<string, unknown>[] = times.length
+    ? await db.worklogEntry.findMany({
+        where: { date: { gte: new Date(Math.min(...times)), lte: new Date(Math.max(...times)) } },
+      })
+    : [];
+  type KeyFields = {
+    time: number;
+    natureOfWork: string | null;
+    account: string | null;
+    projectWork: string | null;
+    importantTasksFeatures: string | null;
+    toolsTechSkills: string | null;
+    priority: string;
+    remarks: string | null;
+  };
+  const keyOf = (e: KeyFields) =>
+    [
+      e.time,
+      normText(e.natureOfWork),
+      normText(e.account),
+      normText(e.projectWork),
+      normText(e.importantTasksFeatures),
+      normText(e.toolsTechSkills),
+      normText(e.remarks),
+      e.priority,
+    ].join('|');
+  const { fresh, duplicates } = splitNewAndDuplicate(
+    dated,
+    existing.map((e) => keyOf({ ...(e as unknown as KeyFields), time: e.date.getTime() })),
+    keyOf
+  );
+
+  for (const entry of fresh) {
     await db.worklogEntry.create({
       data: {
         date: new Date(entry.date),
@@ -189,5 +225,5 @@ export async function importWorklog(
     });
   }
 
-  return { imported: parsed.length };
+  return { imported: fresh.length, duplicates };
 }

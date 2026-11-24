@@ -67,7 +67,10 @@ export function WorklogImportExportDialog({ open, onClose }: Props) {
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Import failed');
 
-      setResult(`Imported ${data.data.imported} worklog ${data.data.imported === 1 ? 'entry' : 'entries'} successfully.`);
+      setResult(
+        `Imported ${data.data.imported} worklog ${data.data.imported === 1 ? 'entry' : 'entries'} successfully.` +
+          (data.data.duplicates > 0 ? ` ${data.data.duplicates} already existed and were skipped.` : '')
+      );
       setFile(null);
       if (fileRef.current) fileRef.current.value = '';
       refetch();

@@ -69,7 +69,10 @@ export function TodoImportExportDialog({ open, onClose }: Props) {
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Import failed');
 
-      setResult(`Imported ${data.data.tasksImported} tasks and ${data.data.subtasksImported} subtasks into "${data.data.listName}"`);
+      setResult(
+        `Imported ${data.data.tasksImported} tasks and ${data.data.subtasksImported} subtasks into "${data.data.listName}"` +
+          (data.data.tasksSkipped > 0 ? `. ${data.data.tasksSkipped} tasks were already in the list and were skipped.` : '')
+      );
       setFile(null);
       if (fileRef.current) fileRef.current.value = '';
     } catch (err) {

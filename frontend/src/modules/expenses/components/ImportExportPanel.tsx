@@ -26,6 +26,7 @@ export function ImportExportPanel({ year, month }: ImportExportPanelProps) {
   const [importResult, setImportResult] = useState<{
     totalRows: number;
     imported: number;
+    duplicates: number;
     skipped: number;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -107,6 +108,11 @@ export function ImportExportPanel({ year, month }: ImportExportPanelProps) {
               <Typography>
                 <strong>{importResult.imported}</strong> transactions imported successfully
               </Typography>
+              {importResult.duplicates > 0 && (
+                <Typography color="text.secondary">
+                  {importResult.duplicates} already existed and were not added again
+                </Typography>
+              )}
               {importResult.skipped > 0 && (
                 <Typography color="text.secondary">
                   {importResult.skipped} rows skipped (invalid or zero amount)

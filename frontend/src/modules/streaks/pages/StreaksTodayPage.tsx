@@ -273,10 +273,10 @@ export function StreaksTodayPage() {
       <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>Streak chains</Typography>
       <Card>
         <CardContent>
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '220px 90px 1fr' }, columnGap: 2, rowGap: 1.5, alignItems: 'center' }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '220px 170px 1fr' }, columnGap: 2, rowGap: 1.5, alignItems: 'center' }}>
             <Typography variant="body2" fontWeight={700}>Productive days</Typography>
             <Typography variant="caption" color="text.secondary">
-              {summary.overall.current} / best {summary.overall.best}
+              current {summary.overall.current} / best {summary.overall.best}
             </Typography>
             <StreakChain chain={summary.overall.chain} size={16} />
 
@@ -291,7 +291,7 @@ export function StreaksTodayPage() {
                 >
                   {h.name}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">{h.current} / best {h.best}</Typography>
+                <Typography variant="caption" color="text.secondary">current {h.current} / best {h.best}</Typography>
                 <StreakChain chain={h.chain} />
               </Box>
             ))}
