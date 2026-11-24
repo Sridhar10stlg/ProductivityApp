@@ -133,6 +133,7 @@ export function StreaksDataCard() {
           <Alert severity={jsonResult.warnings.length > 0 ? 'warning' : 'success'} sx={{ mt: 2 }}>
             Added {jsonResult.entriesAdded} completions across {jsonResult.daysCreated} new days
             {jsonResult.entriesAlreadyDone > 0 ? ` (${jsonResult.entriesAlreadyDone} were already recorded)` : ''}.
+            {jsonResult.daysMarkedWellSpent > 0 ? ` ${jsonResult.daysMarkedWellSpent} days marked well spent.` : ''}
             {jsonResult.habitsCreated > 0 ? ` ${jsonResult.habitsCreated} new habits created.` : ''}
             {jsonResult.warnings.map((w) => ` ${w}.`)}
           </Alert>

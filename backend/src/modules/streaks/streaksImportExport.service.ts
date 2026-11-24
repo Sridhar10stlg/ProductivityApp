@@ -392,6 +392,7 @@ const percentCell = (v: number | null): XLSX.CellObject | string =>
 
 const RESULT_LABELS: Record<string, string> = {
   PRODUCTIVE: 'Productive',
+  WELL_SPENT: 'Well spent',
   PLAN_C_OK: 'Plan C ok',
   NOT_YET: 'Not yet',
 };
@@ -446,7 +447,7 @@ export async function exportToExcel(): Promise<Buffer> {
       ...habits.map((h) => (s.entries[h.id] === 'DONE' ? 'x' : s.entries[h.id] === 'NA' ? '-' : '')),
       s.applicable,
       s.done,
-      s.needed,
+      s.anchorNeeded,
       s.brainDone,
       s.brainNeeded,
       percentCell(s.score),

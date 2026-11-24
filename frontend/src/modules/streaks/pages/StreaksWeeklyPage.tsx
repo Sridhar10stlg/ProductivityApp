@@ -55,7 +55,6 @@ export function StreaksWeeklyPage() {
               <TableRow>
                 <TableCell sx={{ fontWeight: 700 }}>Week</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Dates</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Phase</TableCell>
                 <TableCell align="center" sx={{ fontWeight: 700 }}>Productive</TableCell>
                 <TableCell align="center" sx={{ fontWeight: 700 }}>Plan C ok</TableCell>
                 <TableCell align="center" sx={{ fontWeight: 700 }}>Not yet</TableCell>
@@ -80,7 +79,6 @@ export function StreaksWeeklyPage() {
                 <TableRow key={w.week} sx={{ bgcolor: w.week === currentWeek ? alpha('#1976d2', 0.06) : undefined }}>
                   <TableCell sx={{ fontWeight: w.week === currentWeek ? 700 : 400 }}>{w.week}</TableCell>
                   <TableCell>{dayjs(w.start).format('D MMM')} - {dayjs(w.end).format('D MMM')}</TableCell>
-                  <TableCell>{w.phase}</TableCell>
                   <TableCell align="center">{w.productive}</TableCell>
                   <TableCell align="center">{w.planCOk}</TableCell>
                   <TableCell align="center">{w.notYet}</TableCell>

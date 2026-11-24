@@ -7,6 +7,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import dayjs from 'dayjs';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { LoadingSpinner } from '../../../shared/components/LoadingSpinner';
+import { scheduledOn, scheduleLabel } from '../utils/schedule';
 import { nextStatus } from '../hooks/useCycleHabit';
 import { useGetHabitStatsQuery, useSaveDayMutation } from '../store/streaksApi';
 import { GROUP_COLORS, GROUP_LABELS } from '../types/streaks.types';
@@ -70,7 +71,13 @@ export function HabitDetailPage() {
 
   // Completion since the earlier of plan start and first entry, ignoring not-applicable days.
   const firstDate = [startDate, ...Object.keys(entries)].sort()[0];
-  const spanDays = Math.max(0, dayjs(today).diff(dayjs(firstDate), 'day') + 1);
+  let spanDays = 0;
+  for (let d = dayjs(firstDate); !d.isAfter(dayjs(today), 'day'); d = d.add(1, 'day')) {
+    const key = d.format(FMT);
+    if (scheduledOn(habit, key) || entries[key] === 'DONE') spanDays++;
+  }
+  // A weekly target expects that many days per week rather than every day.
+  if (habit.weeklyTarget) spanDays = Math.max(1, Math.round((spanDays / 7) * habit.weeklyTarget));
   const naDays = Object.keys(entries).filter((d) => entries[d] === 'NA' && d <= today).length;
   const doneToDate = doneDates.filter((d) => d <= today).length;
   const rate = spanDays - naDays > 0 ? doneToDate / (spanDays - naDays) : null;
@@ -97,7 +104,7 @@ export function HabitDetailPage() {
     <Box>
       <PageHeader
         title={habit.name}
-        subtitle={`${GROUP_LABELS[habit.group]} habit${habit.startDate ? ` · counts from ${dayjs(habit.startDate).format('D MMM YYYY')}` : ''}${habit.archived ? ' · archived' : ''}`}
+        subtitle={`${GROUP_LABELS[habit.group]} habit · ${scheduleLabel(habit.weekdays, habit.weeklyTarget)}${habit.startDate ? ` · counts from ${dayjs(habit.startDate).format('D MMM YYYY')}` : ''}${habit.archived ? ' · archived' : ''}`}
         actionLabel="Back"
         actionIcon={<ArrowBackIcon />}
         onAction={() => navigate(-1)}
@@ -107,8 +114,8 @@ export function HabitDetailPage() {
         <Grid item xs={12} md={6}>
           <Card sx={{ mb: 2 }}>
             <CardContent sx={{ display: 'flex', justifyContent: 'space-around', py: 3 }}>
-              <Stat value={data.current} label="Current streak (days)" color={color} />
-              <Stat value={data.best} label="Best streak (days)" />
+              <Stat value={data.current} label={`Current streak (${habit.weeklyTarget ? 'weeks' : 'days'})`} color={color} />
+              <Stat value={data.best} label={`Best streak (${habit.weeklyTarget ? 'weeks' : 'days'})`} />
             </CardContent>
           </Card>
 

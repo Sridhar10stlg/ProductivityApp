@@ -4,24 +4,14 @@ import {
   Box,
   Button,
   Card,
-  CardActionArea,
   CardContent,
   Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Grid,
   IconButton,
   List,
   ListItem,
   ListItemText,
   Switch,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   TextField,
   Tooltip,
   Typography,
@@ -36,24 +26,17 @@ import { PageHeader } from '../../../shared/components/PageHeader';
 import { LoadingSpinner } from '../../../shared/components/LoadingSpinner';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { HabitFormDialog } from '../components/HabitFormDialog';
+import { scheduleLabel } from '../utils/schedule';
 import { StreaksDataCard } from '../components/StreaksDataCard';
 import {
   useDeleteHabitMutation,
   useGetConfigQuery,
   useReorderHabitsMutation,
-  useReplacePhasesMutation,
   useUpdateHabitMutation,
   useUpdateSettingsMutation,
 } from '../store/streaksApi';
 import { GROUP_COLORS, GROUP_LABELS } from '../types/streaks.types';
-import type { Habit, HabitPhase } from '../types/streaks.types';
-
-interface PhaseRow {
-  phase: number;
-  startsInWeek: string;
-  brainNeeded: string;
-  description: string;
-}
+import type { Habit } from '../types/streaks.types';
 
 interface Notice {
   severity: 'success' | 'error';
@@ -62,18 +45,9 @@ interface Notice {
 
 const pct = (v: number) => String(Math.round(v * 100));
 
-const toPhaseRows = (phases: HabitPhase[]): PhaseRow[] =>
-  phases.map((p) => ({
-    phase: p.phase,
-    startsInWeek: String(p.startsInWeek),
-    brainNeeded: String(p.brainNeeded),
-    description: p.description ?? '',
-  }));
-
 export function StreaksSettingsPage() {
   const { data: config } = useGetConfigQuery();
   const [updateSettings, { isLoading: savingSettings }] = useUpdateSettingsMutation();
-  const [replacePhases, { isLoading: savingPhases }] = useReplacePhasesMutation();
   const [updateHabit] = useUpdateHabitMutation();
   const [reorderHabits] = useReorderHabitsMutation();
   const [deleteHabit] = useDeleteHabitMutation();
@@ -83,14 +57,12 @@ export function StreaksSettingsPage() {
   const [productive, setProductive] = useState('');
   const [planC, setPlanC] = useState('');
   const [weeklyGoal, setWeeklyGoal] = useState('');
+  const [bodyMin, setBodyMin] = useState('');
+  const [brainMin, setBrainMin] = useState('');
   const [gateEasy, setGateEasy] = useState('');
   const [gateTotal, setGateTotal] = useState('');
   const [gateMedium, setGateMedium] = useState('');
-  const [phaseRows, setPhaseRows] = useState<PhaseRow[]>([]);
   const [settingsNotice, setSettingsNotice] = useState<Notice | null>(null);
-  const [phasesNotice, setPhasesNotice] = useState<Notice | null>(null);
-  const [phasesDialogOpen, setPhasesDialogOpen] = useState(false);
-  const [phasesError, setPhasesError] = useState<string | null>(null);
 
   const [habitDialogOpen, setHabitDialogOpen] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
@@ -103,15 +75,14 @@ export function StreaksSettingsPage() {
     setProductive(pct(s.productiveThreshold));
     setPlanC(pct(s.planCThreshold));
     setWeeklyGoal(String(s.weeklyGoal));
+    setBodyMin(String(s.bodyNeeded));
+    setBrainMin(String(s.brainNeeded));
     setGateEasy(String(s.gateEasy));
     setGateTotal(String(s.gateTotal));
     setGateMedium(String(s.gateMedium));
-    setPhaseRows(toPhaseRows(config.phases));
   }, [config]);
 
   if (!config) return <LoadingSpinner />;
-
-  const activeHabits = config.habits.filter((h) => !h.archived);
 
   const saveSettings = async () => {
     const productiveN = parseFloat(productive);
@@ -127,6 +98,8 @@ export function StreaksSettingsPage() {
         productiveThreshold: productiveN / 100,
         planCThreshold: planCN / 100,
         weeklyGoal: goalN,
+        bodyNeeded: Math.max(0, parseInt(bodyMin, 10) || 0),
+        brainNeeded: Math.max(0, parseInt(brainMin, 10) || 0),
         gateEasy: Math.max(0, parseInt(gateEasy, 10) || 0),
         gateTotal: Math.max(0, parseInt(gateTotal, 10) || 0),
         gateMedium: Math.max(0, parseInt(gateMedium, 10) || 0),
@@ -137,49 +110,6 @@ export function StreaksSettingsPage() {
     }
   };
 
-  const updatePhaseRow = (index: number, patch: Partial<PhaseRow>) =>
-    setPhaseRows((rows) => rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
-
-  const addPhase = () => {
-    const last = phaseRows[phaseRows.length - 1];
-    setPhaseRows([
-      ...phaseRows,
-      {
-        phase: last ? last.phase + 1 : 1,
-        startsInWeek: String(last ? (parseInt(last.startsInWeek, 10) || 1) + 4 : 1),
-        brainNeeded: last ? last.brainNeeded : '1',
-        description: '',
-      },
-    ]);
-  };
-
-  const openPhasesDialog = () => {
-    // Start from what is saved, so cancelling discards any half-made edits.
-    setPhaseRows(toPhaseRows(config.phases));
-    setPhasesError(null);
-    setPhasesDialogOpen(true);
-  };
-
-  const savePhases = async () => {
-    const payload = phaseRows.map((r) => ({
-      phase: r.phase,
-      startsInWeek: parseInt(r.startsInWeek, 10),
-      brainNeeded: parseInt(r.brainNeeded, 10),
-      description: r.description.trim() || null,
-    }));
-    if (payload.some((p) => !(p.startsInWeek >= 1) || !(p.brainNeeded >= 0))) {
-      setPhasesError('Start week must be 1 or more and Brain habits needed 0 or more.');
-      return;
-    }
-    try {
-      await replacePhases(payload).unwrap();
-      setPhasesNotice({ severity: 'success', text: 'Phases saved. All scores and streaks have been recalculated.' });
-      setPhasesDialogOpen(false);
-    } catch {
-      setPhasesError('Could not save phases.');
-    }
-  };
-
   const moveHabit = (index: number, delta: number) => {
     const ids = config.habits.map((h) => h.id);
     const target = index + delta;
@@ -187,10 +117,6 @@ export function StreaksSettingsPage() {
     [ids[index], ids[target]] = [ids[target], ids[index]];
     reorderHabits(ids);
   };
-
-  const productiveShare = parseFloat(productive) / 100;
-  const todayYmd = new Date().toLocaleDateString('en-CA');
-  const countedToday = activeHabits.filter((h) => !h.startDate || h.startDate <= todayYmd).length;
 
   const numberField = (label: string, value: string, set: (v: string) => void, helper?: string, props?: object) => (
     <TextField
@@ -224,7 +150,7 @@ export function StreaksSettingsPage() {
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
                     InputLabelProps={{ shrink: true }}
-                    helperText="Week and phase numbers count from this date"
+                    helperText="Week numbers count from this date"
                     fullWidth
                   />
                 </Grid>
@@ -232,10 +158,16 @@ export function StreaksSettingsPage() {
                   {numberField('Weekly goal (productive days)', weeklyGoal, setWeeklyGoal, '1 to 7', { inputProps: { min: 1, max: 7 } })}
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  {numberField('Productive-day threshold (%)', productive, setProductive, 'Share of applicable habits to complete', { inputProps: { min: 1, max: 100 } })}
+                  {numberField('Anchor habits needed (%)', productive, setProductive, 'Share of the day\'s Anchor habits', { inputProps: { min: 1, max: 100 } })}
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  {numberField('Plan C threshold (%)', planC, setPlanC, 'Lower bar for sick or drained days', { inputProps: { min: 1, max: 100 } })}
+                  {numberField('Plan C threshold (%)', planC, setPlanC, 'Anchor share on a Plan C day (sick, drained)', { inputProps: { min: 1, max: 100 } })}
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  {numberField('Body habits needed', bodyMin, setBodyMin, 'Per day', { inputProps: { min: 0 } })}
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  {numberField('Brain habits needed', brainMin, setBrainMin, 'Per day', { inputProps: { min: 0 } })}
                 </Grid>
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" color="text.secondary">LeetCode gates</Typography>
@@ -244,6 +176,9 @@ export function StreaksSettingsPage() {
                 <Grid item xs={12} sm={4}>{numberField('Total problems', gateTotal, setGateTotal, 'Phase 2', { inputProps: { min: 0 } })}</Grid>
                 <Grid item xs={12} sm={4}>{numberField('Medium problems', gateMedium, setGateMedium, 'Phase 2', { inputProps: { min: 0 } })}</Grid>
               </Grid>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                A Productive Day: at least {productive}% of that day's Anchor habits, {bodyMin} Body and {brainMin} Brain habits.
+              </Typography>
               <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Button variant="contained" onClick={saveSettings} disabled={savingSettings}>Save plan settings</Button>
               </Box>
@@ -251,44 +186,6 @@ export function StreaksSettingsPage() {
             </CardContent>
           </Card>
           </Box>
-
-          <Card sx={{ mb: 3 }}>
-            <CardActionArea onClick={openPhasesDialog}>
-              <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="h6" fontWeight={700}>Phases</Typography>
-                  <Button size="small" startIcon={<EditIcon fontSize="small" />} component="span">Edit phases</Button>
-                </Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  Phases set the week-by-week Brain-habit minimum for a productive day. Click to change them.
-                </Typography>
-                <Table size="small" sx={{ '& td, & th': { px: 1 } }}>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Phase</TableCell>
-                      <TableCell>From week</TableCell>
-                      <TableCell align="center">Brain</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {config.phases.map((p) => {
-                      return (
-                        <TableRow key={p.phase}>
-                          <TableCell>{p.phase}</TableCell>
-                          <TableCell>{p.startsInWeek}</TableCell>
-                          <TableCell align="center">{p.brainNeeded}</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </CardActionArea>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', px: 2, pb: 2 }}>
-              Today a productive day needs {Math.ceil(productiveShare * countedToday - 1e-9)} of {countedToday} habits ({productive}%).
-            </Typography>
-            {phasesNotice && <Alert severity={phasesNotice.severity} sx={{ m: 2, mt: 0 }}>{phasesNotice.text}</Alert>}
-          </Card>
 
           <StreaksDataCard />
         </Grid>
@@ -342,7 +239,10 @@ export function StreaksSettingsPage() {
                             label={GROUP_LABELS[h.group]}
                             sx={{ bgcolor: alpha(GROUP_COLORS[h.group], 0.12), color: GROUP_COLORS[h.group], height: 20 }}
                           />
-                          <span>{h.startDate ? `counts from ${h.startDate}` : 'counts every day'}</span>
+                          <span>
+                            {scheduleLabel(h.weekdays, h.weeklyTarget)}
+                            {h.startDate ? ` · from ${h.startDate}` : ''}
+                          </span>
                         </Box>
                       }
                       secondaryTypographyProps={{ component: 'span' }}
@@ -355,82 +255,6 @@ export function StreaksSettingsPage() {
           </Card>
         </Grid>
       </Grid>
-
-      <Dialog open={phasesDialogOpen} onClose={() => setPhasesDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Edit phases</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Each phase starts in the given week and sets how many Brain habits a productive day needs.
-          </Typography>
-              <Box sx={{ overflowX: 'auto' }}>
-              <Table size="small" sx={{ '& td, & th': { px: 1.5 } }}>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Phase</TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>Starts in week</TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>Brain needed</TableCell>
-                    <TableCell>Description</TableCell>
-                    <TableCell />
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {phaseRows.map((row, i) => {
-                    const isLast = i === phaseRows.length - 1;
-                    return (
-                      <TableRow key={row.phase}>
-                        <TableCell>{row.phase}</TableCell>
-                        <TableCell>
-                          <TextField
-                            size="small"
-                            type="number"
-                            value={row.startsInWeek}
-                            onChange={(e) => updatePhaseRow(i, { startsInWeek: e.target.value })}
-                            inputProps={{ min: 1 }}
-                            sx={{ width: 80 }}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <TextField
-                            size="small"
-                            type="number"
-                            value={row.brainNeeded}
-                            onChange={(e) => updatePhaseRow(i, { brainNeeded: e.target.value })}
-                            inputProps={{ min: 0 }}
-                            sx={{ width: 80 }}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <TextField
-                            size="small"
-                            value={row.description}
-                            onChange={(e) => updatePhaseRow(i, { description: e.target.value })}
-                            sx={{ minWidth: 280 }}
-                            fullWidth
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {isLast && phaseRows.length > 1 && (
-                            <Tooltip title="Remove last phase">
-                              <IconButton size="small" onClick={() => setPhaseRows(phaseRows.slice(0, -1))}>
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-              </Box>
-          {phasesError && <Alert severity="error" sx={{ mt: 2 }}>{phasesError}</Alert>}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button startIcon={<AddIcon />} onClick={addPhase} sx={{ mr: 'auto' }}>Add phase</Button>
-          <Button onClick={() => setPhasesDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={savePhases} disabled={savingPhases}>Save phases</Button>
-        </DialogActions>
-      </Dialog>
 
       <HabitFormDialog
         open={habitDialogOpen}

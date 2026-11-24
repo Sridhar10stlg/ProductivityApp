@@ -12,12 +12,13 @@ import {
   dateRange,
   habitChain,
   habitStreak,
-  countsOn,
+  priorWeeklyDone,
   overallChain,
   overallStreak,
   scoreDay,
   toDayNumber,
   weekOf,
+  weekStart,
   weekStats,
   weeklyGoalStreak,
 } from './streaks.engine';
@@ -65,6 +66,21 @@ const DEFAULT_HABITS: { name: string; group: string; activeFromPhase: number }[]
   { name: 'System design', group: 'BRAIN', activeFromPhase: 4 },
 ];
 
+const DEFAULT_POINTS: Record<string, number> = {
+  Office: 5, 'System design': 5, German: 4, Walking: 3, Jogging: 4, 'Workout 20 min': 4, 'LeetCode (no AI)': 4, DSA: 4,
+  Courses: 4, 'Wake before 8': 3, 'Not home before 6': 3, 'Screen < 3 h': 3, 'Stock/venture': 3, 'Plan the day': 2,
+  'No tea/coffee': 2, Stretching: 2, Breakfast: 1, Lunch: 1, Pushups: 1, 'Pushups x10': 1,
+};
+
+// weekdays are stored as "1,2,3,4,5" and used as number[] everywhere else.
+const parseWeekdays = (v: string | null): number[] | null => {
+  if (!v) return null;
+  const days = v.split(',').map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6);
+  return days.length > 0 && days.length < 7 ? days : null;
+};
+const formatWeekdays = (days: number[] | null | undefined): string | null =>
+  days && days.length > 0 && days.length < 7 ? Array.from(new Set(days)).sort().join(',') : null;
+
 let defaultsReady = false;
 
 // Creates the settings row, phases and habit list the first time the module is used.
@@ -80,7 +96,12 @@ export async function ensureDefaults() {
   }
   if ((await prisma.habit.count()) === 0) {
     await prisma.habit.createMany({
-      data: DEFAULT_HABITS.map((h, i) => ({ ...h, sortOrder: i })),
+      data: DEFAULT_HABITS.map((h, i) => ({
+        ...h,
+        points: DEFAULT_POINTS[h.name] ?? 1,
+        weekdays: h.name === 'Office' ? '1,2,3,4,5' : null,
+        sortOrder: i,
+      })),
     });
   }
   defaultsReady = true;
@@ -95,7 +116,7 @@ export async function getConfig() {
     prisma.habitPhase.findMany({ orderBy: { startsInWeek: 'asc' } }),
     prisma.habit.findMany({ orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] }),
   ]);
-  return { settings, phases, habits };
+  return { settings, phases, habits: habits.map((h) => ({ ...h, weekdays: parseWeekdays(h.weekdays) })) };
 }
 
 export async function updateSettings(data: UpdateSettingsInput) {
@@ -105,6 +126,8 @@ export async function updateSettings(data: UpdateSettingsInput) {
   if (data.productiveThreshold !== undefined) updateData.productiveThreshold = data.productiveThreshold;
   if (data.planCThreshold !== undefined) updateData.planCThreshold = data.planCThreshold;
   if (data.weeklyGoal !== undefined) updateData.weeklyGoal = data.weeklyGoal;
+  if (data.bodyNeeded !== undefined) updateData.bodyNeeded = data.bodyNeeded;
+  if (data.brainNeeded !== undefined) updateData.brainNeeded = data.brainNeeded;
   if (data.gateEasy !== undefined) updateData.gateEasy = data.gateEasy;
   if (data.gateTotal !== undefined) updateData.gateTotal = data.gateTotal;
   if (data.gateMedium !== undefined) updateData.gateMedium = data.gateMedium;
@@ -137,6 +160,9 @@ export async function createHabit(data: CreateHabitInput) {
       group: data.group,
       activeFromPhase: data.activeFromPhase ?? 1,
       startDate: data.startDate ?? null,
+      points: data.points ?? 1,
+      weekdays: data.weeklyTarget ? null : formatWeekdays(data.weekdays),
+      weeklyTarget: data.weeklyTarget ?? null,
       sortOrder: (last._max.sortOrder ?? -1) + 1,
     },
   });
@@ -148,6 +174,12 @@ export async function updateHabit(id: number, data: UpdateHabitInput) {
   if (data.group !== undefined) updateData.group = data.group;
   if (data.activeFromPhase !== undefined) updateData.activeFromPhase = data.activeFromPhase;
   if (data.startDate !== undefined) updateData.startDate = data.startDate;
+  if (data.points !== undefined) updateData.points = data.points;
+  if (data.weekdays !== undefined) updateData.weekdays = formatWeekdays(data.weekdays);
+  if (data.weeklyTarget !== undefined) {
+    updateData.weeklyTarget = data.weeklyTarget;
+    if (data.weeklyTarget) updateData.weekdays = null; // a weekly target replaces the weekday schedule
+  }
   if (data.archived !== undefined) updateData.archived = data.archived;
 
   return prisma.habit.update({ where: { id }, data: updateData });
@@ -174,6 +206,8 @@ async function loadContext(): Promise<EngineContext> {
     productiveThreshold: settings.productiveThreshold,
     planCThreshold: settings.planCThreshold,
     weeklyGoal: settings.weeklyGoal,
+    bodyNeeded: settings.bodyNeeded,
+    brainNeeded: settings.brainNeeded,
   };
   const enginePhases: EnginePhase[] = phases.map((p) => ({
     phase: p.phase,
@@ -182,7 +216,15 @@ async function loadContext(): Promise<EngineContext> {
   }));
   const engineHabits: EngineHabit[] = habits
     .filter((h) => !h.archived)
-    .map((h) => ({ id: h.id, name: h.name, group: h.group, startDate: h.startDate }));
+    .map((h) => ({
+      id: h.id,
+      name: h.name,
+      group: h.group,
+      startDate: h.startDate,
+      points: h.points,
+      weekdays: h.weekdays,
+      weeklyTarget: h.weeklyTarget,
+    }));
   return { settings: engineSettings, phases: enginePhases, habits: engineHabits };
 }
 
@@ -195,13 +237,13 @@ async function loadRecords(from?: string, to?: string): Promise<Map<string, DayR
   for (const day of days) {
     const entries: Record<number, EntryStatus> = {};
     for (const e of day.entries) entries[e.habitId] = e.status as EntryStatus;
-    map.set(day.date, { date: day.date, plan: day.plan, notes: day.notes, entries });
+    map.set(day.date, { date: day.date, plan: day.plan, notes: day.notes, wellSpent: day.wellSpent, entries });
   }
   return map;
 }
 
 function scoreRange(from: string, to: string, records: Map<string, DayRecord>, ctx: EngineContext): DayScore[] {
-  return dateRange(from, to).map((date) => scoreDay(date, records.get(date), ctx));
+  return dateRange(from, to).map((date) => scoreDay(date, records.get(date), ctx, priorWeeklyDone(date, records, ctx)));
 }
 
 // ─── Days ───────────────────────────────────────────────────
@@ -212,7 +254,8 @@ export async function getDays(from: string, to: string) {
     throw new Error(`Date range is limited to ${MAX_RANGE_DAYS} days`);
   }
   const ctx = await loadContext();
-  const records = await loadRecords(from, to);
+  // Weekly-target habits depend on earlier days of the same week, so load from that week's Monday.
+  const records = await loadRecords(weekStart(from), to);
   return scoreRange(from, to, records, ctx);
 }
 
@@ -227,11 +270,12 @@ export async function saveDay(date: string, data: SaveDayInput) {
   const dayUpdate: Record<string, unknown> = {};
   if (data.plan !== undefined) dayUpdate.plan = data.plan;
   if (data.notes !== undefined) dayUpdate.notes = data.notes;
+  if (data.wellSpent !== undefined) dayUpdate.wellSpent = data.wellSpent;
 
   const day = await prisma.habitDay.upsert({
     where: { date },
     update: dayUpdate,
-    create: { date, plan: data.plan ?? 'A', notes: data.notes ?? null },
+    create: { date, plan: data.plan ?? 'A', notes: data.notes ?? null, wellSpent: data.wellSpent ?? false },
   });
 
   if (data.entries) {
@@ -279,7 +323,7 @@ export async function getSummary() {
   const today = todayString();
   const { all, upToToday, habitScores, records } = await buildScores(ctx, today);
 
-  const todayScore = scoreDay(today, records.get(today), ctx);
+  const todayScore = scoreDay(today, records.get(today), ctx, priorWeeklyDone(today, records, ctx));
   const started = toDayNumber(today) >= toDayNumber(ctx.settings.startDate);
 
   const currentWeek = weekOf(today, ctx.settings.startDate);
@@ -291,7 +335,8 @@ export async function getSummary() {
     habitId: h.id,
     name: h.name,
     group: h.group,
-    activeToday: countsOn(h, today),
+    activeToday: todayScore.inPlay.includes(h.id),
+    weeklyTarget: h.weeklyTarget,
     ...habitStreak(h, habitScores, today),
     chain: habitChain(h, habitScores, today, CHAIN_LENGTH),
   }));
@@ -319,7 +364,7 @@ export async function getSummary() {
     habits: habitsOut,
     totals: {
       loggedDays: upToToday.filter((s) => s.logged).length,
-      productiveDays: upToToday.filter((s) => s.result === 'PRODUCTIVE').length,
+      productiveDays: upToToday.filter((s) => s.result === 'PRODUCTIVE' || s.result === 'WELL_SPENT').length,
     },
   };
 }
@@ -338,7 +383,7 @@ export async function getWeekly() {
 
   return {
     goal: ctx.settings.weeklyGoal,
-    habits: ctx.habits.map((h) => ({ id: h.id, name: h.name, group: h.group, startDate: h.startDate })),
+    habits: ctx.habits.map((h) => ({ id: h.id, name: h.name, group: h.group, startDate: h.startDate, points: h.points, weekdays: h.weekdays, weeklyTarget: h.weeklyTarget })),
     weeks,
   };
 }
@@ -362,7 +407,15 @@ export async function getHabitStats(id: number) {
   const { habitScores } = await buildScores(ctx, today);
 
   // Archived habits are not in the scoring context but can still be viewed.
-  const engineHabit: EngineHabit = { id: habit.id, name: habit.name, group: habit.group, startDate: habit.startDate };
+  const engineHabit: EngineHabit = {
+    id: habit.id,
+    name: habit.name,
+    group: habit.group,
+    startDate: habit.startDate,
+    points: habit.points,
+    weekdays: parseWeekdays(habit.weekdays),
+    weeklyTarget: habit.weeklyTarget,
+  };
   const streak = habitStreak(engineHabit, habitScores, today);
 
   const rows = await prisma.habitEntry.findMany({
@@ -378,6 +431,9 @@ export async function getHabitStats(id: number) {
       name: habit.name,
       group: habit.group,
       startDate: habit.startDate,
+      points: habit.points,
+      weekdays: parseWeekdays(habit.weekdays),
+      weeklyTarget: habit.weeklyTarget,
       archived: habit.archived,
     },
     startDate: ctx.settings.startDate,

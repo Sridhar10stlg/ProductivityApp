@@ -49,13 +49,13 @@ export const streaksApi = createApi({
       invalidatesTags: ['StreakConfig', 'StreakDay'],
     }),
 
-    createHabit: builder.mutation<Habit, { name: string; group: HabitGroup; startDate?: string | null }>({
+    createHabit: builder.mutation<Habit, { name: string; group: HabitGroup; startDate?: string | null; weekdays?: number[] | null; weeklyTarget?: number | null }>({
       query: (body) => ({ url: '/habits', method: 'POST', body }),
       transformResponse: (response: ApiResponse<Habit>) => response.data,
       invalidatesTags: ['StreakConfig', 'StreakDay'],
     }),
 
-    updateHabit: builder.mutation<Habit, { id: number; data: Partial<Pick<Habit, 'name' | 'group' | 'startDate' | 'archived'>> }>({
+    updateHabit: builder.mutation<Habit, { id: number; data: Partial<Pick<Habit, 'name' | 'group' | 'startDate' | 'weekdays' | 'weeklyTarget' | 'archived'>> }>({
       query: ({ id, data }) => ({ url: `/habits/${id}`, method: 'PUT', body: data }),
       transformResponse: (response: ApiResponse<Habit>) => response.data,
       invalidatesTags: ['StreakConfig', 'StreakDay'],

@@ -30,9 +30,11 @@ interface Props {
 const GROUPS: HabitGroup[] = ['ANCHOR', 'BODY', 'BRAIN'];
 
 // Select values: "skip", "map:<habitId>" or "create:<GROUP>"
-const initialChoice = (h: JsonPreviewHabit) => (h.suggestedHabitId ? `map:${h.suggestedHabitId}` : 'skip');
+const initialChoice = (h: JsonPreviewHabit) =>
+  /productive day|day well spent|well spent/i.test(h.name) ? 'wellspent' : h.suggestedHabitId ? `map:${h.suggestedHabitId}` : 'skip';
 
 function toMapping(index: number, choice: string): JsonMappingItem {
+  if (choice === 'wellspent') return { index, action: 'wellSpent' };
   if (choice.startsWith('map:')) return { index, action: 'map', habitId: Number(choice.slice(4)) };
   if (choice.startsWith('create:')) return { index, action: 'create', group: choice.slice(7) as HabitGroup, activeFromPhase: 1 };
   return { index, action: 'skip' };
@@ -103,6 +105,7 @@ export function JsonImportDialog({ file, habits, onClose, onDone }: Props) {
                     onChange={(e) => setChoices({ ...choices, [h.index]: e.target.value })}
                   >
                     <MenuItem value="skip">Skip</MenuItem>
+                    <MenuItem value="wellspent">Mark days as Day well spent</MenuItem>
                     {GROUPS.map((g) => (
                       <MenuItem key={g} value={`create:${g}`}>New habit ({GROUP_LABELS[g]})</MenuItem>
                     ))}

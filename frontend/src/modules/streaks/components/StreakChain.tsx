@@ -5,7 +5,8 @@ import type { ChainState, HabitChainState } from '../types/streaks.types';
 type State = ChainState | HabitChainState;
 
 const STATE_STYLES: Record<State, { bg: string; border?: string; label: string }> = {
-  PRODUCTIVE: { bg: '#2e7d32', label: 'Productive' },
+  PRODUCTIVE: { bg: '#2e7d32', label: 'Productive Day' },
+  WELL_SPENT: { bg: '#00897b', label: 'Well spent' },
   PLAN_C_OK: { bg: '#0288d1', label: 'Plan C ok' },
   NOT_YET: { bg: '#ed6c02', label: 'Not yet' },
   DONE: { bg: '#2e7d32', label: 'Done' },

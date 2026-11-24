@@ -24,6 +24,8 @@ const fileSchema = z.object({
 export const mappingSchema = z.array(
   z.discriminatedUnion('action', [
     z.object({ index: z.number().int(), action: z.literal('skip') }),
+    // Each completed date of this file habit becomes a "day well spent" mark instead of a habit entry.
+    z.object({ index: z.number().int(), action: z.literal('wellSpent') }),
     z.object({ index: z.number().int(), action: z.literal('map'), habitId: z.number().int() }),
     z.object({
       index: z.number().int(),
@@ -118,6 +120,7 @@ export async function importJson(buffer: Buffer, mapping: ImportMapping) {
   const result = {
     habitsCreated: 0,
     habitsSkipped: 0,
+    daysMarkedWellSpent: 0,
     daysCreated: 0,
     entriesAdded: 0,
     entriesAlreadyDone: 0,
@@ -134,11 +137,16 @@ export async function importJson(buffer: Buffer, mapping: ImportMapping) {
       const maxSort = await tx.habit.aggregate({ _max: { sortOrder: true } });
       let nextSort = (maxSort._max.sortOrder ?? 0) + 1;
 
+      const wellSpentDates = new Set<string>();
       for (const m of mapping) {
         const fh = fileHabits[m.index];
         if (!fh) continue;
         if (m.action === 'skip') {
           result.habitsSkipped++;
+          continue;
+        }
+        if (m.action === 'wellSpent') {
+          fh.dates.forEach((d) => wellSpentDates.add(d));
           continue;
         }
         let habitId: number;
@@ -167,6 +175,16 @@ export async function importJson(buffer: Buffer, mapping: ImportMapping) {
         fh.dates.forEach((d) => set.add(d));
         dates.set(habitId, set);
         if (fh.ignored > 0) warnings.push(`"${fh.name}": ${fh.ignored} completion(s) had an unreadable date and were ignored`);
+      }
+
+      // Days marked well spent: create the day if needed and set the mark (idempotent).
+      if (wellSpentDates.size > 0) {
+        const wsList = Array.from(wellSpentDates);
+        const have = new Set((await tx.habitDay.findMany({ where: { date: { in: wsList } }, select: { date: true } })).map((d) => d.date));
+        const create = wsList.filter((d) => !have.has(d));
+        if (create.length > 0) await tx.habitDay.createMany({ data: create.map((date) => ({ date, plan: 'A', wellSpent: true })) });
+        const updated = await tx.habitDay.updateMany({ where: { date: { in: wsList }, wellSpent: false }, data: { wellSpent: true } });
+        result.daysMarkedWellSpent = create.length + updated.count;
       }
 
       // 2. Make sure a day row exists for every date

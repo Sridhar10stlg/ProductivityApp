@@ -142,9 +142,11 @@ model WorklogEntry {
 model HabitSettings {
   id                  Int      @id @default(1)
   startDate           String   // day 1 of the plan, "YYYY-MM-DD"
-  productiveThreshold Float    @default(0.78)
+  productiveThreshold Float    @default(0.5) // share of the day's Anchor habits to do for a productive day
   planCThreshold      Float    @default(0.63)
   weeklyGoal          Int      @default(5)
+  bodyNeeded          Int      @default(2) // Body habits to do for a productive day
+  brainNeeded         Int      @default(1) // Brain habits to do for a productive day
   gateEasy            Int      @default(30) // LeetCode phase 1 gate: easy problems
   gateTotal           Int      @default(80) // LeetCode phase 2 gate: total problems
   gateMedium          Int      @default(30) // LeetCode phase 2 gate: medium problems
@@ -166,6 +168,9 @@ model Habit {
   group           String       // ANCHOR, BODY, BRAIN
   activeFromPhase Int          @default(1) // legacy: no longer used for scoring
   startDate       String?      // "YYYY-MM-DD": counts toward the daily total from this date; null = from the beginning
+  points          Int          @default(1) // 1-5: weight of this habit in the daily score
+  weekdays        String?      // "1,2,3,4,5" (0=Sun..6=Sat): days it is scheduled; null = every day
+  weeklyTarget    Int?         // "do it N days a week" (any days, Monday to Sunday weeks); null = scheduled by weekdays
   sortOrder       Int          @default(0)
   archived        Boolean      @default(false)
   createdAt       DateTime     @default(now())
@@ -177,6 +182,7 @@ model HabitDay {
   id        Int          @id @default(autoincrement())
   date      String       @unique
   plan      String       @default("A") // A, B, C
+  wellSpent Boolean      @default(false) // manual "day well spent": counts as a good day whatever the points say
   notes     String?
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt

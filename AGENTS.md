@@ -102,10 +102,18 @@ Weekly, LeetCode, Settings.
 - Settings (start date, thresholds, weekly goal, LeetCode gates), phases and habits are all editable
   in the Settings page. Defaults (the workbook's phases and 19 habits) are created lazily by
   `ensureDefaults()` on first use, not by `prisma db seed`.
-- **Score = habits done / habits counted that day.** Every non-archived habit counts, so 5/20 means 5 of 20.
-  A habit has an optional `startDate`; before it the habit is not in the total, so adding a habit later
-  changes /19 to /20 from that date only. Phases no longer gate habits: they only set the Brain-habit minimum
-  (`Habit.activeFromPhase` is legacy and unused for scoring).
+- **A Productive Day is three checks, no points.** At least half of that day's Anchor habits
+  (`HabitSettings.productiveThreshold`), `bodyNeeded` (2) Body habits and `brainNeeded` (1) Brain habits, the
+  Body/Brain minimums capped at what the group has available that day. N/A habits drop out. A habit has an optional
+  `weekdays` schedule (`"1,2,3,4,5"`, 0=Sun; unscheduled days never break its streak; a one-off tick on an
+  unscheduled day just counts), an optional `startDate` (before it the habit is not part of the day), or a
+  `weeklyTarget` ("N days a week", Monday-Sunday): a bonus that counts when done, never required; its streak
+  counts weeks. Plan C uses `planCThreshold` on Anchor only. Phases, `Habit.points` and `Habit.activeFromPhase`
+  are legacy: kept in the database (and the Excel layout) but not used for scoring or shown in the app.
+- **Day well spent**: `HabitDay.wellSpent` is a manual mark (Today page switch, Tracker checkbox) that makes a day a
+  good day whatever the points say (a trip, say). Result codes: `PRODUCTIVE` (shown as "Productive Day"), `WELL_SPENT`,
+  `PLAN_C_OK`, `NOT_YET`. The overall streak ("Productive streak") counts productive days, well spent and Plan C ok.
+  The JSON importer can map a file habit (e.g. "Productive Day") to well-spent marks instead of a habit.
 - Archiving a habit (switch off) keeps its history but excludes it from scoring; deleting cascades.
 - Import reads the workbook by sheet/header names (Settings, Tracker, LeetCode log); export writes
   the same layout. Import with `overwriteSettings` (default true) replaces start date, thresholds,

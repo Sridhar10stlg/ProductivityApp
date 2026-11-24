@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   Box,
   Button,
+  Checkbox,
   IconButton,
   MenuItem,
   Paper,
@@ -58,7 +59,7 @@ export function StreaksTrackerPage() {
         <IconButton onClick={() => setMonth(month.add(1, 'month'))}><ChevronRightIcon /></IconButton>
         <Button onClick={() => setMonth(dayjs().startOf('month'))}>This month</Button>
         <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
-          Plan starts {dayjs(startDate).format('D MMM YYYY')}. Done is out of all habits counted that day. A grey cell is a day before that habit was added: you can still log it, but it is not part of that day's total.
+          Plan starts {dayjs(startDate).format('D MMM YYYY')}. Done is habits done out of the habits in play that day. A Productive Day needs half of the Anchor habits, enough Body and enough Brain habits. A grey cell is a day the habit is not part of: before it was added or not scheduled that day. You can still tick it.
         </Typography>
       </Box>
 
@@ -66,7 +67,7 @@ export function StreaksTrackerPage() {
         <Table size="small" stickyHeader sx={{ '& td, & th': { px: 0.5, py: 0.25, whiteSpace: 'nowrap' } }}>
           <TableHead>
             <TableRow>
-              <TableCell colSpan={4} sx={{ position: 'sticky', left: 0, zIndex: 3, bgcolor: 'background.paper' }} />
+              <TableCell colSpan={3} sx={{ position: 'sticky', left: 0, zIndex: 3, bgcolor: 'background.paper' }} />
               {GROUPS.map((g) => {
                 const count = ordered.filter((h) => h.group === g).length;
                 if (count === 0) return null;
@@ -81,13 +82,12 @@ export function StreaksTrackerPage() {
                   </TableCell>
                 );
               })}
-              <TableCell colSpan={3} />
+              <TableCell colSpan={4} />
             </TableRow>
             <TableRow>
               <TableCell sx={{ position: 'sticky', left: 0, zIndex: 3, bgcolor: 'background.paper', fontWeight: 700 }}>Date</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Wk</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Ph</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Plan</TableCell>
+                            <TableCell sx={{ fontWeight: 700 }}>Plan</TableCell>
               {ordered.map((h, i) => (
                 <TableCell
                   key={h.id}
@@ -120,6 +120,7 @@ export function StreaksTrackerPage() {
               <TableCell align="center" sx={{ fontWeight: 700 }}>Done</TableCell>
               <TableCell align="center" sx={{ fontWeight: 700 }}>Score</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Result</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>Well spent</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -151,7 +152,6 @@ export function StreaksTrackerPage() {
                     ))}
                   </TableCell>
                   <TableCell>{d.week}</TableCell>
-                  <TableCell>{d.phase}</TableCell>
                   <TableCell>
                     <Select
                       variant="standard"
@@ -166,8 +166,8 @@ export function StreaksTrackerPage() {
                     </Select>
                   </TableCell>
                   {ordered.map((h, i) => {
-                    const active = !h.startDate || h.startDate <= d.date;
                     const status = d.entries[h.id];
+                    const active = d.inPlay.includes(h.id);
                     return (
                       <TableCell
                         key={h.id}
@@ -193,9 +193,16 @@ export function StreaksTrackerPage() {
                       </TableCell>
                     );
                   })}
-                  <TableCell align="center">{d.logged ? `${d.done}/${d.applicable}` : ''}</TableCell>
+                  <TableCell align="center">{d.score !== null ? `${d.done}/${d.applicable}` : ''}</TableCell>
                   <TableCell align="center">{d.score !== null ? `${Math.round(d.score * 100)}%` : ''}</TableCell>
                   <TableCell>{d.logged ? <ResultChip result={d.result} /> : null}</TableCell>
+                  <TableCell align="center" padding="checkbox">
+                    <Checkbox
+                      size="small"
+                      checked={d.wellSpent}
+                      onChange={(e) => saveDay({ date: d.date, data: { wellSpent: e.target.checked } })}
+                    />
+                  </TableCell>
                 </TableRow>
               );
             })}

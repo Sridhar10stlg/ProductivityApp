@@ -1,6 +1,6 @@
 export type HabitGroup = 'ANCHOR' | 'BODY' | 'BRAIN';
 export type EntryStatus = 'DONE' | 'NA';
-export type DayResult = 'PRODUCTIVE' | 'PLAN_C_OK' | 'NOT_YET';
+export type DayResult = 'PRODUCTIVE' | 'WELL_SPENT' | 'PLAN_C_OK' | 'NOT_YET';
 export type PlanType = 'A' | 'B' | 'C';
 
 export interface HabitSettings {
@@ -9,6 +9,8 @@ export interface HabitSettings {
   productiveThreshold: number;
   planCThreshold: number;
   weeklyGoal: number;
+  bodyNeeded: number; // Body habits to do for a productive day
+  brainNeeded: number; // Brain habits to do for a productive day
   gateEasy: number;
   gateTotal: number;
   gateMedium: number;
@@ -27,6 +29,8 @@ export interface Habit {
   name: string;
   group: HabitGroup;
   startDate: string | null; // counts toward the daily total from this date; null = from the beginning
+  weekdays: number[] | null; // 0 = Sunday .. 6 = Saturday; null = every day
+  weeklyTarget: number | null; // "N days a week" (any days); replaces weekdays
   sortOrder: number;
   archived: boolean;
 }
@@ -44,20 +48,28 @@ export interface DayScore {
   phase: number;
   plan: PlanType;
   notes: string | null;
+  wellSpent: boolean;
   entries: Record<number, EntryStatus>;
   logged: boolean;
   applicable: number;
   done: number;
-  needed: number;
+  anchorDone: number;
+  anchorNeeded: number;
+  anchorTotal: number;
+  bodyDone: number;
+  bodyNeeded: number;
   brainDone: number;
   brainNeeded: number;
   score: number | null;
   result: DayResult | null;
+  inPlay: number[]; // habit ids that are part of this day's total
+  weeklyDone: Record<number, number>; // weekly-target habits: times done so far this week
 }
 
 export interface SaveDayData {
   plan?: PlanType;
   notes?: string | null;
+  wellSpent?: boolean;
   entries?: Record<number, EntryStatus | null>;
 }
 
@@ -89,13 +101,14 @@ export interface StreaksSummary {
     name: string;
     group: HabitGroup;
     activeToday: boolean;
+    weeklyTarget: number | null;
     chain: { date: string; state: HabitChainState }[];
   })[];
   totals: { loggedDays: number; productiveDays: number };
 }
 
 export interface HabitStats {
-  habit: { id: number; name: string; group: HabitGroup; startDate: string | null; archived: boolean };
+  habit: { id: number; name: string; group: HabitGroup; startDate: string | null; weekdays: number[] | null; weeklyTarget: number | null; archived: boolean };
   startDate: string;
   today: string;
   current: number;
@@ -190,12 +203,14 @@ export interface JsonPreviewHabit {
 
 export type JsonMappingItem =
   | { index: number; action: 'skip' }
+  | { index: number; action: 'wellSpent' }
   | { index: number; action: 'map'; habitId: number }
   | { index: number; action: 'create'; group: HabitGroup; activeFromPhase: number };
 
 export interface JsonImportResult {
   habitsCreated: number;
   habitsSkipped: number;
+  daysMarkedWellSpent: number;
   daysCreated: number;
   entriesAdded: number;
   entriesAlreadyDone: number;
@@ -221,13 +236,15 @@ export const PLAN_LABELS: Record<PlanType, string> = {
 };
 
 export const RESULT_LABELS: Record<DayResult, string> = {
-  PRODUCTIVE: 'Productive',
+  PRODUCTIVE: 'Productive Day',
+  WELL_SPENT: 'Well spent',
   PLAN_C_OK: 'Plan C ok',
   NOT_YET: 'Not yet',
 };
 
 export const RESULT_COLORS: Record<DayResult, string> = {
   PRODUCTIVE: '#2e7d32',
+  WELL_SPENT: '#00897b',
   PLAN_C_OK: '#0288d1',
   NOT_YET: '#ed6c02',
 };

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import {
   Alert,
+  FormControlLabel,
+  Switch,
   Box,
   ButtonBase,
   Button,
@@ -45,22 +47,27 @@ function motivation(summary: StreaksSummary, day: DayScore, isToday: boolean): {
   if (!isToday) {
     return { severity: 'info', text: 'You are looking at a past day. Edits here recalculate your streaks.' };
   }
-  if (day.result === 'PRODUCTIVE' || day.result === 'PLAN_C_OK') {
+  if (day.result === 'PRODUCTIVE' || day.result === 'WELL_SPENT' || day.result === 'PLAN_C_OK') {
     return {
       severity: 'success',
       text: `Today counts. ${current}-day streak${current >= best && current > 1 ? ' - your best so far' : ` (best ${best})`}. Keep the chain going tomorrow.`,
     };
   }
-  const more = Math.max(0, day.needed - day.done);
-  const brainMore = Math.max(0, day.brainNeeded - day.brainDone);
-  const need = brainMore > 0 ? `${more} more habit${more === 1 ? '' : 's'}, including ${brainMore} Brain` : `${more} more habit${more === 1 ? '' : 's'}`;
+  const parts = [
+    { n: Math.max(0, day.anchorNeeded - day.anchorDone), name: 'Anchor' },
+    { n: Math.max(0, day.bodyNeeded - day.bodyDone), name: 'Body' },
+    { n: Math.max(0, day.brainNeeded - day.brainDone), name: 'Brain' },
+  ]
+    .filter((p) => p.n > 0)
+    .map((p) => `${p.n} more ${p.name}`);
+  const need = parts.length > 0 ? parts.join(', ') : 'Nothing more';
   if (current > 0) {
     return { severity: 'warning', text: `Your ${current}-day streak is on the line. ${need} to make today productive.` };
   }
   if (best > 0) {
-    return { severity: 'info', text: `Fresh start. Your best streak is ${best} days; ${need} makes today a productive day.` };
+    return { severity: 'info', text: `Fresh start. Your best streak is ${best} days; ${need} makes today a Productive Day.` };
   }
-  return { severity: 'info', text: `Every chain starts with one productive day. ${need} to get yours.` };
+  return { severity: 'info', text: `Every chain starts with one Productive Day. ${need} to get yours.` };
 }
 
 export function StreaksTodayPage() {
@@ -109,39 +116,39 @@ export function StreaksTodayPage() {
           {dayjs(date).format('dddd, D MMMM YYYY')}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Week {day.week} · Phase {day.phase}
+          Week {day.week}
         </Typography>
       </Box>
 
       <Alert severity={message.severity} sx={{ mb: 2 }}>{message.text}</Alert>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={6} md={3}>
+        <Grid item xs={12} md={6}>
           <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Typography variant="body2" color="text.secondary">Today</Typography>
-              <Box sx={{ my: 0.5 }}><ResultChip result={day.result} size="medium" /></Box>
-              <Typography variant="h5" fontWeight={700}>
-                {day.done} / {day.applicable}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {day.score !== null ? `${Math.round(day.score * 100)}% · ` : ''}{day.needed} needed to be productive
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} md={3}>
-          <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Typography variant="body2" color="text.secondary">Brain habits</Typography>
-              <Typography
-                variant="h4"
-                fontWeight={700}
-                color={day.brainDone >= day.brainNeeded ? 'success.main' : 'text.primary'}
-              >
-                {day.brainDone} / {day.brainNeeded}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">minimum for a productive day</Typography>
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="body2" color="text.secondary">Today</Typography>
+                <ResultChip result={day.result} size="medium" />
+              </Box>
+              {[
+                { name: 'Anchor', done: day.anchorDone, needed: day.anchorNeeded, note: `of ${day.anchorTotal}` },
+                { name: 'Body', done: day.bodyDone, needed: day.bodyNeeded, note: '' },
+                { name: 'Brain', done: day.brainDone, needed: day.brainNeeded, note: '' },
+              ].map((c) => {
+                const met = c.done >= c.needed;
+                return (
+                  <Box key={c.name} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.25 }}>
+                    {met ? <CheckCircleIcon fontSize="small" color="success" /> : <RadioButtonUncheckedIcon fontSize="small" color="disabled" />}
+                    <Typography variant="body2" fontWeight={600} sx={{ width: 64 }}>{c.name}</Typography>
+                    <Typography variant="body2" color={met ? 'success.main' : 'text.primary'} fontWeight={700}>
+                      {c.done} / {c.needed}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      needed{c.note ? ` (${c.note} habits today)` : ''}
+                    </Typography>
+                  </Box>
+                );
+              })}
             </CardContent>
           </Card>
         </Grid>
@@ -193,6 +200,16 @@ export function StreaksTodayPage() {
                 <MenuItem key={p} value={p}>{PLAN_LABELS[p]}</MenuItem>
               ))}
             </TextField>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={day.wellSpent}
+                  onChange={(e) => saveDay({ date, data: { wellSpent: e.target.checked } })}
+                />
+              }
+              label="Day well spent"
+              title="Counts as a productive day whatever the habits say, e.g. a trip or exploring"
+            />
             <TextField
               size="small"
               label="Notes"
@@ -214,8 +231,9 @@ export function StreaksTodayPage() {
                 </Typography>
                 <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 1 }}>
                   {groupHabits.map((h) => {
-                    const active = !h.startDate || h.startDate <= day.date;
                     const status = day.entries[h.id];
+                    const started = !h.startDate || h.startDate <= day.date;
+                    const active = day.inPlay.includes(h.id);
                     const streak = streakOf(h.id);
                     return (
                       <ButtonBase
@@ -244,9 +262,9 @@ export function StreaksTodayPage() {
                         )}
                         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                           <Typography variant="body2" fontWeight={600} noWrap>{h.name}</Typography>
-                          {!active && (
+                          {(!active || h.weeklyTarget) && (
                             <Typography variant="caption" color="text.secondary">
-                              Counts from {dayjs(h.startDate).format('D MMM YYYY')}
+                              {h.weeklyTarget ? `${day.weeklyDone[h.id] ?? 0} / ${h.weeklyTarget} this week` : started ? `Not scheduled on ${dayjs(day.date).format('dddd')}s. Tick it to count it today.` : `Counts from ${dayjs(h.startDate).format('D MMM YYYY')}`}
                             </Typography>
                           )}
                           {active && status === 'NA' && (
@@ -290,7 +308,7 @@ export function StreaksTodayPage() {
                 >
                   {h.name}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">current {h.current} / best {h.best}</Typography>
+                <Typography variant="caption" color="text.secondary">current {h.current} / best {h.best}{h.weeklyTarget ? ' wk' : ''}</Typography>
                 <StreakChain chain={h.chain} />
               </Box>
             ))}

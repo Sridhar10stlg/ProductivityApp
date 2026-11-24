@@ -7,6 +7,8 @@ export const updateSettingsSchema = z.object({
   productiveThreshold: z.number().gt(0).max(1).optional(),
   planCThreshold: z.number().gt(0).max(1).optional(),
   weeklyGoal: z.number().int().min(1).max(7).optional(),
+  bodyNeeded: z.number().int().min(0).max(10).optional(),
+  brainNeeded: z.number().int().min(0).max(10).optional(),
   gateEasy: z.number().int().min(0).optional(),
   gateTotal: z.number().int().min(0).optional(),
   gateMedium: z.number().int().min(0).optional(),
@@ -36,6 +38,9 @@ export const createHabitSchema = z.object({
   group: habitGroupSchema,
   activeFromPhase: z.number().int().min(1).optional(),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  points: z.number().int().min(1).max(5).optional(),
+  weekdays: z.array(z.number().int().min(0).max(6)).nullable().optional(),
+  weeklyTarget: z.number().int().min(1).max(6).nullable().optional(),
 });
 
 export const updateHabitSchema = z.object({
@@ -43,6 +48,9 @@ export const updateHabitSchema = z.object({
   group: habitGroupSchema.optional(),
   activeFromPhase: z.number().int().min(1).optional(),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  points: z.number().int().min(1).max(5).optional(),
+  weekdays: z.array(z.number().int().min(0).max(6)).nullable().optional(),
+  weeklyTarget: z.number().int().min(1).max(6).nullable().optional(),
   archived: z.boolean().optional(),
 });
 
@@ -53,6 +61,7 @@ export const reorderHabitsSchema = z.object({
 export const saveDaySchema = z.object({
   plan: z.enum(['A', 'B', 'C']).optional(),
   notes: z.string().nullable().optional(),
+  wellSpent: z.boolean().optional(),
   // habitId -> DONE | NA, or null to clear (= missed)
   entries: z.record(z.string().regex(/^\d+$/), z.enum(['DONE', 'NA']).nullable()).optional(),
 });
