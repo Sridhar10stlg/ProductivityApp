@@ -20,7 +20,7 @@ const modules = [
     icon: <WhatshotIcon sx={{ fontSize: 48 }} />,
     color: '#f57c00',
     path: '/streaks',
-    ready: false,
+    ready: true,
   },
   {
     title: 'To-Do / Tasks',

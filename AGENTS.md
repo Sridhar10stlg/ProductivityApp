@@ -15,7 +15,7 @@ no authentication.
 - `cd backend && npx tsc --noEmit` — type-check backend
 - `cd frontend && npx tsc --noEmit` — type-check frontend
 
-There are no tests, no ESLint/Prettier config, and no git repository in this project.
+There are no tests and no ESLint/Prettier config in this project.
 Type-checking both packages is the only automated verification available.
 
 ## Database location
@@ -85,17 +85,34 @@ up an existing entry with the same `sourceType` + `sourceId` before inserting, s
 a reopened task does not add a second row. Subtask completions carry the parent task title
 into `projectWork`. If you touch task completion, preserve that guard.
 
+### Daily Streaks (`/streaks`)
+Habit tracker driven by the `sridhar_habit_tracker.xlsx` workbook (daily grid, phases, weekly
+review, LeetCode log). Five pages: Today (check-in + streak chains), Tracker (monthly grid),
+Weekly, LeetCode, Settings.
+- Backend: `backend/src/modules/streaks/` (streaks.*, leetcode.*, streaksImportExport.*)
+- Frontend: `frontend/src/modules/streaks/`
+- DB models: `HabitSettings` (single row, id 1), `HabitPhase`, `Habit`, `HabitDay`, `HabitEntry`,
+  `LeetCodeEntry`
+- **Scores and streaks are computed, never stored.** All rules live in `streaks.engine.ts` as pure
+  functions (productive / Plan C / not-yet result, phase and week from the start date, streaks,
+  weekly stats), so changing a threshold, phase or the start date recalculates all history.
+- Dates are `"YYYY-MM-DD"` strings, not `DateTime`, so a habit day never shifts with timezones.
+- An entry row means `DONE` or `NA` (not applicable); no row means missed. A day with no entries is
+  "not logged" (no result); a past day that is not logged breaks streaks, today never does.
+- Settings (start date, thresholds, weekly goal, LeetCode gates), phases and habits are all editable
+  in the Settings page. Defaults (the workbook's phases and 19 habits) are created lazily by
+  `ensureDefaults()` on first use, not by `prisma db seed`.
+- Archiving a habit (switch off) keeps its history but excludes it from scoring; deleting cascades.
+- Import reads the workbook by sheet/header names (Settings, Tracker, LeetCode log); export writes
+  the same layout. Import with `overwriteSettings` (default true) replaces start date, thresholds,
+  phases and habit list from the file.
+
 ### Import / Export
-All three modules support import and export via `multer` + `xlsx`. The To-Do importer also
+All four modules support import and export via `multer` + `xlsx`. The To-Do importer also
 parses **PDF exports of Microsoft To-Do's print view** (`todoImportExport.service.ts`) by
 decoding its glyph markers — `K` = active task, `O` = completed, `þ`/`ÿ` = subtasks,
 `Խ` = important. It is tightly coupled to that exact PDF layout and is brittle by nature;
 `To Do task list.pdf` at the repo root is the reference file it was built against.
-
-## Not Implemented
-- **Daily Streak Tracker** — no schema, no backend, no frontend. It appears in the nav as a
-  disabled "Coming Soon" entry in `AppLayout.tsx`. This is the only module from the original
-  spec (`docs/Codex-architecture-prompt.md`) that remains unbuilt.
 
 ## API Routes (mounted in `backend/src/server.ts`)
 | Base path | Module |
@@ -110,16 +127,19 @@ decoding its glyph markers — `K` = active task, `O` = completed, `þ`/`ÿ` = s
 | `/api/v1/tasks/data` | To-Do import/export (mounted before `/tasks`) |
 | `/api/v1/worklog` | Worklog entries (CRUD) |
 | `/api/v1/worklog/data` | Worklog import/export (mounted before `/worklog`) |
+| `/api/v1/streaks` | Habit config (`/config`, `/settings`, `/phases`, `/habits`), daily log (`/days`), `/summary`, `/weekly` |
+| `/api/v1/streaks/leetcode` | LeetCode log (CRUD + stats; mounted before `/streaks`) |
+| `/api/v1/streaks/data` | Habit tracker Excel import/export (mounted before `/streaks`) |
 | `/api/health` | Health check |
 
-Note the ordering constraint: `/tasks/data` and `/worklog/data` must stay mounted **before**
-`/tasks` and `/worklog`, or the `/:id` routes will swallow them.
+Note the ordering constraint: `/tasks/data`, `/worklog/data` and the `/streaks/*` sub-paths must stay
+mounted **before** `/tasks`, `/worklog` and `/streaks`, or the `/:id` routes will swallow them.
 
 ## Conventions
 - Backend API responses use shape: `{ success: boolean, data?: T, error?: string }`
 - Frontend RTK Query slices use `transformResponse` to unwrap the `data` field
 - Cache invalidation via RTK Query tags — finance: `['Transaction', 'Category', 'Summary',
-  'Account', 'Budget']`; todos: `['Task', 'TaskList', 'TaskStats']`; worklog: `['Worklog']`
+  'Account', 'Budget']`; todos: `['Task', 'TaskList', 'TaskStats']`; worklog: `['Worklog']`; streaks: `['StreakConfig', 'StreakDay', 'LeetCode']`
 - Partial updates: services build an `updateData` object with `if (x !== undefined)` guards
   rather than passing the payload straight through
 - MUI for all UI components, Inter font family

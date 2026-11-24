@@ -134,3 +134,80 @@ model WorklogEntry {
 
   @@index([date])
 }
+
+// ─── Streaks Module ──────────────────────────────────
+// Dates are stored as "YYYY-MM-DD" strings (not DateTime) so a habit day never shifts with timezones.
+// Scores, results and streaks are computed from these rows, never stored.
+
+model HabitSettings {
+  id                  Int      @id @default(1)
+  startDate           String   // day 1 of the plan, "YYYY-MM-DD"
+  productiveThreshold Float    @default(0.78)
+  planCThreshold      Float    @default(0.63)
+  weeklyGoal          Int      @default(5)
+  gateEasy            Int      @default(30) // LeetCode phase 1 gate: easy problems
+  gateTotal           Int      @default(80) // LeetCode phase 2 gate: total problems
+  gateMedium          Int      @default(30) // LeetCode phase 2 gate: medium problems
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model HabitPhase {
+  id           Int     @id @default(autoincrement())
+  phase        Int     @unique
+  startsInWeek Int
+  brainNeeded  Int     @default(1)
+  description  String?
+}
+
+model Habit {
+  id              Int          @id @default(autoincrement())
+  name            String       @unique
+  group           String       // ANCHOR, BODY, BRAIN
+  activeFromPhase Int          @default(1)
+  sortOrder       Int          @default(0)
+  archived        Boolean      @default(false)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  entries         HabitEntry[]
+}
+
+model HabitDay {
+  id        Int          @id @default(autoincrement())
+  date      String       @unique
+  plan      String       @default("A") // A, B, C
+  notes     String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  entries   HabitEntry[]
+}
+
+// One row per habit marked on a day. A missing row means "missed" (blank in the spreadsheet).
+model HabitEntry {
+  id      Int      @id @default(autoincrement())
+  dayId   Int
+  day     HabitDay @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  habitId Int
+  habit   Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  status  String   // DONE, NA
+
+  @@unique([dayId, habitId])
+  @@index([habitId])
+}
+
+model LeetCodeEntry {
+  id         Int      @id @default(autoincrement())
+  date       String
+  problem    String
+  link       String?
+  pattern    String?
+  difficulty String   @default("EASY") // EASY, MEDIUM, HARD
+  minutes    Int?
+  solvedSolo Boolean  @default(true)
+  redoDone   Boolean  @default(false)
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([date])
+}

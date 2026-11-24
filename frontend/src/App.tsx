@@ -7,6 +7,11 @@ import { ExpenseAnalyticsPage } from './modules/expenses/pages/ExpenseAnalyticsP
 import { BudgetPage } from './modules/expenses/pages/BudgetPage';
 import { TodoPage } from './modules/todos/pages/TodoPage';
 import { WorklogPage } from './modules/worklog/pages/WorklogPage';
+import { StreaksTodayPage } from './modules/streaks/pages/StreaksTodayPage';
+import { StreaksTrackerPage } from './modules/streaks/pages/StreaksTrackerPage';
+import { StreaksWeeklyPage } from './modules/streaks/pages/StreaksWeeklyPage';
+import { LeetCodePage } from './modules/streaks/pages/LeetCodePage';
+import { StreaksSettingsPage } from './modules/streaks/pages/StreaksSettingsPage';
 
 function App() {
   return (
@@ -19,6 +24,11 @@ function App() {
         <Route path="/expenses/budgets" element={<BudgetPage />} />
         <Route path="/todos" element={<TodoPage />} />
         <Route path="/worklog" element={<WorklogPage />} />
+        <Route path="/streaks" element={<StreaksTodayPage />} />
+        <Route path="/streaks/tracker" element={<StreaksTrackerPage />} />
+        <Route path="/streaks/weekly" element={<StreaksWeeklyPage />} />
+        <Route path="/streaks/leetcode" element={<LeetCodePage />} />
+        <Route path="/streaks/settings" element={<StreaksSettingsPage />} />
       </Routes>
     </AppLayout>
   );

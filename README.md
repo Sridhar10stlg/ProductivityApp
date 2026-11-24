@@ -11,7 +11,8 @@ Single user, no authentication, runs entirely on localhost.
   My Day / Important / Planned smart views
 - **Task-to-Worklog** — completed tasks flow automatically into an editable, Excel-like
   worklog grid
-- **Daily Streak Tracker** — *(not implemented)*
+- **Daily Streaks** — a habit tracker with phases, a daily check-in, streak chains, a weekly review,
+  a LeetCode log and Excel import/export; habits, phases and thresholds are editable in-app
 
 ## Tech Stack
 
@@ -224,8 +225,21 @@ All endpoints are versioned under `/api/v1`.
 | POST | `/data/import` | Excel |
 | POST | `/tasks/data/import` | PDF (Microsoft To-Do print export), Excel, JSON, CSV |
 | POST | `/worklog/data/import` | Excel, JSON, CSV |
+| GET/POST | `/streaks/data/export`, `/streaks/data/import` | Excel (habit tracker workbook) |
 
 Uploads are capped at 10MB and held in memory (never written to disk).
+
+### Streaks
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/streaks/config` | Settings, phases and habits |
+| PUT | `/streaks/settings`, `/streaks/phases` | Update plan settings / replace the phase table |
+| POST/PUT/DELETE | `/streaks/habits`, `/streaks/habits/:id` | Manage habits; `PUT /streaks/habits/order` reorders |
+| GET | `/streaks/days?from&to` | Scored days (done, needed, result) for a date range |
+| PUT | `/streaks/days/:date` | Set plan, notes and habit entries (`DONE`, `NA`, or `null` to clear) |
+| GET | `/streaks/summary`, `/streaks/weekly` | Streaks and chains; weekly review |
+| GET/POST/PUT/DELETE | `/streaks/leetcode` | LeetCode log with stats and phase gates |
 
 ## Task-to-Worklog Automation
 

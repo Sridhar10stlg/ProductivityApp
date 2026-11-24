@@ -24,6 +24,11 @@ import ChecklistIcon from '@mui/icons-material/Checklist';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SavingsIcon from '@mui/icons-material/Savings';
+import TodayIcon from '@mui/icons-material/Today';
+import GridViewIcon from '@mui/icons-material/GridView';
+import ViewWeekIcon from '@mui/icons-material/ViewWeek';
+import CodeIcon from '@mui/icons-material/Code';
+import SettingsIcon from '@mui/icons-material/Settings';
 
 const DRAWER_WIDTH = 240;
 
@@ -58,8 +63,14 @@ const modules: ModuleConfig[] = [
     icon: <WhatshotIcon />,
     color: '#f57c00',
     basePath: '/streaks',
-    ready: false,
-    subItems: [],
+    ready: true,
+    subItems: [
+      { label: 'Today', icon: <TodayIcon />, path: '/streaks' },
+      { label: 'Tracker', icon: <GridViewIcon />, path: '/streaks/tracker' },
+      { label: 'Weekly', icon: <ViewWeekIcon />, path: '/streaks/weekly' },
+      { label: 'LeetCode', icon: <CodeIcon />, path: '/streaks/leetcode' },
+      { label: 'Settings', icon: <SettingsIcon />, path: '/streaks/settings' },
+    ],
   },
   {
     key: 'todos',

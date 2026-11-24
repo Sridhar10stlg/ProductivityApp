@@ -11,6 +11,9 @@ import { taskRoutes } from './modules/todos/task.routes';
 import { todoImportExportRoutes } from './modules/todos/todoImportExport.routes';
 import { worklogRoutes } from './modules/worklog/worklog.routes';
 import { worklogImportExportRoutes } from './modules/worklog/worklogImportExport.routes';
+import { streaksRoutes } from './modules/streaks/streaks.routes';
+import { leetCodeRoutes } from './modules/streaks/leetcode.routes';
+import { streaksImportExportRoutes } from './modules/streaks/streaksImportExport.routes';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -33,6 +36,11 @@ app.use('/api/v1/tasks', taskRoutes);
 // API Routes — Worklog
 app.use('/api/v1/worklog/data', worklogImportExportRoutes);
 app.use('/api/v1/worklog', worklogRoutes);
+
+// API Routes — Streaks (/data and /leetcode before the base path)
+app.use('/api/v1/streaks/data', streaksImportExportRoutes);
+app.use('/api/v1/streaks/leetcode', leetCodeRoutes);
+app.use('/api/v1/streaks', streaksRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
